@@ -1,4 +1,4 @@
-// F-CARD-01…07, 09, 10 (TEST HA-SAIL-TEST-001 §4.7): the card rendered in headless Chromium
+// F-CARD-01…07, 09…11 (TEST HA-SAIL-TEST-001 §4.7): the card rendered in headless Chromium
 // with states recorded from Vigie (test/fixtures, written by Vigie's own tests). Tiles are
 // a blank data URL: no network.
 import * as L from "leaflet";
@@ -321,6 +321,51 @@ describe("F-CARD-10 tile requests", () => {
       for (const tile of tiles) {
         expect(tile.getAttribute("referrerpolicy")).toBe("strict-origin-when-cross-origin");
       }
+    }
+  });
+});
+
+describe("F-CARD-11 own boat", () => {
+  it("F-CARD-11 own boat line, details on tap, then position lost", async () => {
+    const card = await mount(clone(multiTarget));
+    const line = () => (card.shadowRoot!.querySelector(".vigie-own-line")?.textContent ?? "").replace(/\s+/g, " ");
+    for (const part of ["43° 30.115′ N", "7° 15.000′ E", "SOG 6.0 kn", "COG 0°", "Heading —", "Position current"]) {
+      expect(line()).toContain(part);
+    }
+    all(card, ".vigie-own")[0].click();
+    await settle(card);
+    const details = (card.shadowRoot!.querySelector(".vigie-details")?.textContent ?? "").replace(/\s+/g, " ");
+    for (const part of ["43° 30.115′ N", "7° 15.000′ E", "SOG6.0 kn", "COG0°", "Position current"]) {
+      expect(details).toContain(part);
+    }
+    // The details survive an update (the own marker is redrawn every time)
+    card.hass = hass(clone(multiTarget));
+    await settle(card);
+    expect(card.shadowRoot!.querySelectorAll(".vigie-details")).toHaveLength(1);
+
+    const lost = clone(multiTarget) as States;
+    lost["device_tracker.garnet"] = {
+      state: "unavailable",
+      attributes: {},
+      last_changed: "2026-10-22T14:05:00+00:00",
+    };
+    card.hass = hass(lost);
+    await settle(card);
+    const time = new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit" }).format(
+      new Date("2026-10-22T14:05:00Z"),
+    );
+    expect(line()).toContain(`Position lost since ${time}`);
+    expect(line()).toContain("43° 30.115′ N"); // the last position seen
+    expect(all(card, ".vigie-own")).toHaveLength(0);
+    expect(all(card, ".vigie-own-lost")).toHaveLength(1); // drawn faded where it was
+    expect(all(card, "path.vigie-ring")).toHaveLength(0);
+  });
+
+  it("F-CARD-11 French", async () => {
+    const card = await mount(clone(multiTarget), CONFIG, "fr");
+    const line = card.shadowRoot!.querySelector(".vigie-own-line")?.textContent ?? "";
+    for (const part of ["43° 30,115′ N", "Vitesse fond 6,0 nd", "Route fond 0°", "Cap —", "Position à jour"]) {
+      expect(line.replace(/\s+/g, " ")).toContain(part);
     }
   });
 });

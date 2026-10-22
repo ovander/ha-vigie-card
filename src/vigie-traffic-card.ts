@@ -13,7 +13,8 @@ import { css, html, LitElement, nothing, type PropertyValues, unsafeCSS } from "
 import { type VigieTrafficCardConfig, validateConfig } from "./config";
 import { EDITOR_TAG } from "./editor";
 import { localize } from "./i18n";
-import { type Anchor, anchorEntities, anchorOf, type HassState, ownBoat, targetRows } from "./model";
+import { type Anchor, anchorEntities, anchorOf, type HassState, type OwnBoat, ownBoat, targetRows } from "./model";
+import { ownLines, positionState, positionStateText } from "./own";
 import { type MapView, TrafficMap } from "./map";
 
 export const CARD_TAG = "vigie-traffic-card";
@@ -37,6 +38,8 @@ export class VigieTrafficCard extends LitElement {
   hass?: Hass;
   private _config?: VigieTrafficCardConfig;
   private _follow = true;
+  /** The last own position seen, shown faded while the position is lost (#77). */
+  private _lastOwn: OwnBoat | null = null;
   private _map?: TrafficMap;
   private _resize?: ResizeObserver;
   /** The state objects last drawn: Home Assistant replaces an object when it changes. */
@@ -99,7 +102,19 @@ export class VigieTrafficCard extends LitElement {
   private _viewOf(states: (HassState | undefined)[]): MapView {
     const [targets, own, , distance, watch, alarm] = states;
     const anchor: Anchor | null = this._config!.anchor ? anchorOf(distance, watch, alarm) : null;
-    return { own: ownBoat(own), targets: targetRows(targets), anchor };
+    return {
+      own: ownBoat(own),
+      lastOwn: this._lastOwn,
+      ownState: positionState(own),
+      targets: targetRows(targets),
+      anchor,
+    };
+  }
+
+  protected override willUpdate(changed: PropertyValues): void {
+    super.willUpdate(changed);
+    const own = this._config && this.hass ? ownBoat(this.hass.states[this._config.own]) : null;
+    if (own) this._lastOwn = own;
   }
 
   protected override render() {
@@ -113,7 +128,9 @@ export class VigieTrafficCard extends LitElement {
         </div>
       </ha-card>`;
     }
-    const ownKnown = ownBoat(this.hass.states[this._config.own]) !== null;
+    const tracker = this.hass.states[this._config.own];
+    const ownKnown = ownBoat(tracker) !== null;
+    const shown = ownBoat(tracker) ?? this._lastOwn;
     const risk = this._config.collision_risk
       ? this.hass.states[this._config.collision_risk]?.state === "on"
       : false;
@@ -128,6 +145,17 @@ export class VigieTrafficCard extends LitElement {
                 d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm8.94 3A8.99 8.99 0 0 0 13 3.06V1h-2v2.06A8.99 8.99 0 0 0 3.06 11H1v2h2.06A8.99 8.99 0 0 0 11 20.94V23h2v-2.06A8.99 8.99 0 0 0 20.94 13H23v-2h-2.06ZM12 19a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg>
             </button>`}
       </div>
+      ${shown
+        ? html`<div class="vigie-own-line">
+            ${ownLines(lang, shown).map(
+              ([label, value], i) =>
+                html`<span>${i === 0 ? value : `${label} ${value}`}</span>`,
+            )}
+            <span class=${ownKnown ? "current" : "warning"}
+              >${positionStateText(lang, positionState(tracker))}</span
+            >
+          </div>`
+        : nothing}
       <div class="status">
         <span class="count">${localize(lang, "targets", { count: sensor.state })}</span>
         ${ownKnown
@@ -208,6 +236,24 @@ export class VigieTrafficCard extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
+      }
+      .vigie-own-line {
+        display: flex;
+        gap: 4px 14px;
+        flex-wrap: wrap;
+        padding: 8px 16px 0;
+        font-variant-numeric: tabular-nums;
+      }
+      .vigie-own-line .current {
+        color: var(--secondary-text-color);
+      }
+      .vigie-own-lost {
+        background: none;
+        border: none;
+      }
+      .vigie-details-position {
+        margin-top: 4px;
+        color: var(--secondary-text-color);
       }
       .status {
         display: flex;

@@ -13,10 +13,14 @@ import type { VigieTrafficCardConfig } from "./config";
 import { cpaPoint, type LatLon, METRES_PER_NM, vectorEnd } from "./geo";
 import { formatNumber, localize, shipType } from "./i18n";
 import type { Anchor, OwnBoat, TargetRow } from "./model";
+import { ownLines, type PositionState, positionStateText } from "./own";
 import { COLORS, hasVector, labelFor, showLabel, styleFor, symbolFor } from "./style";
 
 export interface MapView {
   own: OwnBoat | null;
+  /** The last own position the card saw, drawn faded while the position is lost (#77). */
+  lastOwn?: OwnBoat | null;
+  ownState?: PositionState;
   targets: TargetRow[];
   anchor: Anchor | null;
 }
@@ -51,14 +55,14 @@ function targetIcon(row: TargetRow): L.DivIcon {
   });
 }
 
-function ownIcon(own: OwnBoat): L.DivIcon {
+function ownIcon(own: OwnBoat, lost = false): L.DivIcon {
   const symbol = symbolFor(own);
   const body =
     symbol.shape === "triangle"
       ? `<path d="M0,-10 C4,-5 5,2 4,9 L-4,9 C-5,2 -4,-5 0,-10 Z" fill="${COLORS.own}" stroke="#fff" stroke-width="1.5"/>`
       : `<circle r="6" fill="${COLORS.own}" stroke="#fff" stroke-width="1.5"/>`;
   return L.divIcon({
-    className: "vigie-own",
+    className: lost ? "vigie-own-lost" : "vigie-own",
     html: svg(body, symbol.rotation),
     iconSize: [ICON, ICON],
     iconAnchor: [ICON / 2, ICON / 2],
@@ -88,6 +92,7 @@ export class TrafficMap {
   private fitted = false;
   private followOwn = true;
   private openMmsi: number | null = null;
+  private ownOpen = false;
   private redrawing = false;
 
   constructor(
@@ -114,12 +119,14 @@ export class TrafficMap {
     this.map.on("dragstart", () => this.setFollow(false));
     this.map.on("zoomend", () => this.drawTargets()); // labels depend on the zoom
     this.map.on("popupopen", (e: L.PopupEvent) => {
-      const mmsi = (e.popup.options as { mmsi?: number }).mmsi;
-      if (mmsi !== undefined) this.openMmsi = mmsi;
+      const options = e.popup.options as { mmsi?: number; own?: boolean };
+      if (options.mmsi !== undefined) this.openMmsi = options.mmsi;
+      if (options.own) this.ownOpen = true;
     });
     this.map.on("popupclose", () => {
       if (this.redrawing) return;
       this.openMmsi = null;
+      this.ownOpen = false;
       if (this.followOwn) this.center();
     });
   }
@@ -190,13 +197,47 @@ export class TrafficMap {
     return L.polyline([from, to], { color, weight: 2, opacity, interactive: false, className: "vigie-vector" });
   }
 
+  /** The own boat, tappable for its details (#77); faded where it was while its position is lost. */
   private drawOwn(): void {
+    this.redrawing = true;
     this.own.clearLayers();
-    const own = this.view.own;
-    if (!own) return;
-    const at: LatLon = [own.lat, own.lon];
-    if (hasVector(own)) this.own.addLayer(this.vector(at, own.sog!, own.cog!, COLORS.own, 1));
-    this.own.addLayer(L.marker(at, { icon: ownIcon(own), interactive: false, zIndexOffset: 1000 }));
+    const own = this.view.own ?? this.view.lastOwn ?? null;
+    const lost = this.view.own === null && own !== null;
+    if (own) {
+      const at: LatLon = [own.lat, own.lon];
+      if (!lost && hasVector(own)) {
+        this.own.addLayer(this.vector(at, own.sog!, own.cog!, COLORS.own, 1));
+      }
+      const marker = L.marker(at, { icon: ownIcon(own, lost), zIndexOffset: 1000, opacity: lost ? 0.4 : 1 });
+      marker.bindPopup(() => this.ownDetails(own), { own: true, className: "vigie-popup" } as L.PopupOptions);
+      this.own.addLayer(marker);
+      if (this.ownOpen) marker.openPopup();
+    } else {
+      this.ownOpen = false;
+    }
+    this.redrawing = false;
+  }
+
+  /** The own boat's details: position, SOG, COG, heading, position state; textContent only. */
+  ownDetails(own: OwnBoat): HTMLElement {
+    const lang = this.language();
+    const box = document.createElement("div");
+    box.className = "vigie-details vigie-details-own";
+    const title = document.createElement("strong");
+    title.textContent = localize(lang, "own_boat");
+    box.appendChild(title);
+    const table = document.createElement("table");
+    for (const [label, value] of ownLines(lang, own)) {
+      const tr = table.insertRow();
+      tr.insertCell().textContent = label;
+      tr.insertCell().textContent = value;
+    }
+    box.appendChild(table);
+    const state = document.createElement("div");
+    state.className = "vigie-details-position";
+    state.textContent = positionStateText(lang, this.view.ownState ?? { current: true, since: null });
+    box.appendChild(state);
+    return box;
   }
 
   private drawRings(): void {

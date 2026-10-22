@@ -7,6 +7,8 @@
 export interface HassState {
   state: string;
   attributes: Record<string, unknown>;
+  /** ISO time of the last state change (Home Assistant sends it with every state). */
+  last_changed?: string;
 }
 
 /** One row of the `targets` attribute (Vigie SPEC §9.2). */

@@ -5,6 +5,11 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+### Added
+- Your boat's position (degrees and minutes), SOG, COG and heading in a line under the
+  map and in details when you tap the boat, with whether the position is current or since
+  when it is lost; the boat stays drawn, faded, at its last position (ovander/ha-vigie#77).
+
 ## [0.1.0-beta.2] - 2026-10-22
 
 Fixes the map tiles in Home Assistant. Needs Vigie 0.3.0-beta.1 or later, as before.
