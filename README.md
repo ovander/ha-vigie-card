@@ -35,7 +35,7 @@ lookout and use your chartplotter or charting software to navigate.
 ## Requirements
 
 - Home Assistant 2026.2.0 or later, with [Vigie](https://github.com/ovander/ha-vigie)
-  later than 0.2.0-beta.1 (its `targets` rows carry `heading` and `threat`).
+  0.3.0-beta.1 or later (its `targets` rows carry `heading` and `threat`).
 
 ## Installation (HACS)
 
