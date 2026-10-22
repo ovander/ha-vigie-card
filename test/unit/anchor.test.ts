@@ -37,6 +37,10 @@ describe("U-ACARD-02 status", () => {
     expect(statusOf(on(), on({ reason: "drag" }), metres(55))).toBe("dragging");
     expect(statusOf(on(), on({ reason: "no_position" }), unavailable)).toBe("position_lost");
     expect(statusOf(on(), off, unavailable)).toBe("waiting");
+    // Outside before the alarm's confirmation delay ends (E-09 pre-run: green "Watching" at 87 / 50 m)
+    const at = (m: number) => ({ state: String(m), attributes: { radius_m: 50 } });
+    expect(statusOf(on(), off, at(51))).toBe("outside");
+    expect(statusOf(on(), off, at(50))).toBe("watching"); // on the circle is inside (§8.4)
     expect(statusOf(undefined, undefined, undefined)).toBe("off");
   });
 });
@@ -156,7 +160,7 @@ describe("U-ACARD-08 translations", () => {
     for (const key of keys) {
       expect(STRINGS.fr[key as keyof typeof STRINGS.fr], key).toBeTruthy();
     }
-    for (const status of ["off", "watching", "waiting", "dragging", "position_lost"]) {
+    for (const status of ["off", "watching", "waiting", "outside", "dragging", "position_lost"]) {
       expect(localize("fr", `anchor_card.${status}` as keyof typeof STRINGS.en)).not.toContain("anchor_card.");
     }
   });

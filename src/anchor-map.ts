@@ -77,9 +77,13 @@ export class AnchorMap {
     const { anchor } = this.view;
     const boat = this.view.own ?? this.view.lastOwn;
     if (anchor) {
-      const key = `${anchor.lat},${anchor.lon},${anchor.radius_m}`;
+      // The circle; and the boat when it is out of it, so a dragging boat stays in view
+      // (E-09 pre-run: it was cut at the map's edge)
+      const bounds = L.latLngBounds(swingBounds(anchor.lat, anchor.lon, anchor.radius_m));
+      if (boat && !bounds.contains([boat.lat, boat.lon])) bounds.extend([boat.lat, boat.lon]);
+      const key = bounds.toBBoxString();
       if (key === this.fittedTo) return;
-      this.map.fitBounds(swingBounds(anchor.lat, anchor.lon, anchor.radius_m), { animate: false, padding: [8, 8] });
+      this.map.fitBounds(bounds, { animate: false, padding: [16, 16] });
       this.fittedTo = key;
     } else if (boat) {
       const zoom = this.fittedTo === "own" ? this.map.getZoom() : OFF_ZOOM;

@@ -25,7 +25,7 @@ import {
   trackFrom,
 } from "./anchor-model";
 import { ANCHOR_EDITOR_TAG } from "./editor";
-import { formatNumber, localize, type StringKey } from "./i18n";
+import { formatNumber, localeTag, localize, type StringKey } from "./i18n";
 import { type HassState, type OwnBoat, ownBoat } from "./model";
 import { formatTime, positionState } from "./own";
 import { ownLine, ownLineStyles } from "./own-line";
@@ -35,7 +35,7 @@ export const ANCHOR_CARD_TAG = "vigie-anchor-card";
 /** The part of Home Assistant's `hass` object the anchor card uses. */
 export interface AnchorHass {
   states: Record<string, HassState | undefined>;
-  locale?: { language?: string };
+  locale?: { language?: string; time_format?: string };
   language?: string;
   callService(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
   /** Home Assistant's WebSocket call; the card only reads the own tracker's history (OD-36). */
@@ -96,7 +96,7 @@ export class VigieAnchorCard extends LitElement {
   }
 
   private get _language(): string | undefined {
-    return this.hass?.locale?.language ?? this.hass?.language;
+    return localeTag(this.hass?.locale, this.hass?.language);
   }
 
   private _states(): (HassState | undefined)[] {
@@ -327,7 +327,8 @@ export class VigieAnchorCard extends LitElement {
       .status-watching {
         color: var(--success-color, #2e7d32);
       }
-      .status-waiting {
+      .status-waiting,
+      .status-outside {
         color: var(--warning-color, #f57c00);
       }
       .status-off {

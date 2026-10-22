@@ -40,6 +40,7 @@ export const STRINGS = {
     "anchor_card.off": "Anchor watch off",
     "anchor_card.watching": "Watching",
     "anchor_card.waiting": "Waiting for position",
+    "anchor_card.outside": "Outside the circle",
     "anchor_card.dragging": "Dragging",
     "anchor_card.position_lost": "Position lost",
     "anchor_card.since": "since {time}",
@@ -139,6 +140,7 @@ export const STRINGS = {
     "anchor_card.off": "Veille au mouillage arrêtée",
     "anchor_card.watching": "Veille",
     "anchor_card.waiting": "En attente de position",
+    "anchor_card.outside": "Hors du cercle",
     "anchor_card.dragging": "Dérapage",
     "anchor_card.position_lost": "Position perdue",
     "anchor_card.since": "depuis {time}",
@@ -208,6 +210,22 @@ export const STRINGS = {
 
 export type Language = keyof typeof STRINGS;
 export type StringKey = keyof (typeof STRINGS)["en"];
+
+/**
+ * The locale tag the cards format with: Home Assistant's language, with the user's 12/24 h
+ * setting as a Unicode extension (`en-u-hc-h23`) so times follow it (E-09 pre-run: "05:01 PM"
+ * for a 24 h user). "language" and "system" keep the language's own format.
+ */
+export function localeTag(
+  locale?: { language?: string; time_format?: string },
+  fallback?: string,
+): string | undefined {
+  const base = locale?.language ?? fallback;
+  if (!base) return undefined;
+  if (locale?.time_format === "24") return `${base}-u-hc-h23`;
+  if (locale?.time_format === "12") return `${base}-u-hc-h12`;
+  return base;
+}
 
 /** The card's language for a Home Assistant language tag ("fr", "fr-BE"…); English otherwise. */
 export function languageOf(tag: string | undefined): Language {

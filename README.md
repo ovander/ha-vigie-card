@@ -84,7 +84,8 @@ Replace `garnet` with your boat's name as it appears in its entity IDs.
 
 A second card in the same download, for the anchor watch in the cockpit:
 
-- the watch's state in large type: *Watching*, *Waiting for position*, or in red
+- the watch's state in large type: *Watching*, *Waiting for position* or *Outside the
+  circle* (before the alarm's 20 s delay ends), or in red
   *Dragging* / *Position lost* with the time it started;
 - the distance to the anchor against the radius (`32 / 50 m`) and a gauge, amber from
   80 % of the radius, red outside;

@@ -6,7 +6,7 @@
 import { displace, type LatLon, METRES_PER_NM } from "./geo";
 import { type Anchor, anchorOf, type HassState } from "./model";
 
-export type AnchorStatus = "off" | "watching" | "waiting" | "dragging" | "position_lost";
+export type AnchorStatus = "off" | "watching" | "waiting" | "outside" | "dragging" | "position_lost";
 
 const usable = (s?: HassState): s is HassState =>
   s !== undefined && s.state !== "unavailable" && s.state !== "unknown";
@@ -23,13 +23,17 @@ const date = (v: unknown): Date | null => {
 };
 
 /**
- * The status line. Never *watching* while the alarm is on or the position is unknown; an
- * alarm with an unknown reason shows as dragging (the safe side).
+ * The status line. Never *watching* while the alarm is on, the position is unknown or the
+ * boat is outside the circle before the alarm's confirmation delay ends (*outside*, E-09
+ * pre-run); an alarm with an unknown reason shows as dragging (the safe side).
  */
 export function statusOf(watch?: HassState, alarm?: HassState, distance?: HassState): AnchorStatus {
   if (watch?.state !== "on") return "off";
   if (alarm?.state === "on") return alarm.attributes.reason === "no_position" ? "position_lost" : "dragging";
-  return numeric(distance) === null ? "waiting" : "watching";
+  const metres = numeric(distance);
+  if (metres === null) return "waiting";
+  const radius = num(distance?.attributes.radius_m);
+  return radius !== null && metres > radius ? "outside" : "watching";
 }
 
 export type GaugeLevel = "normal" | "amber" | "red" | "none";

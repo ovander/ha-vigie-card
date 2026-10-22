@@ -134,6 +134,10 @@ describe("F-ACARD", () => {
     expect(text(one(card, ".reading"))).toBe("55 / 50 m");
     expect(one(card, ".gauge")!.className).toContain("level-red");
     expect(all(card, "path.vigie-anchor-circle.vigie-anchor-alarm")).toHaveLength(1);
+    // The boat outside the circle stays in view (E-09 pre-run: it was cut at the map's edge)
+    const own = states["device_tracker.garnet"]!.attributes;
+    const view = card.anchorMap!.map.getBounds().pad(-0.05);
+    expect(view.contains([own.latitude as number, own.longitude as number])).toBe(true);
   });
 
   it("F-ACARD-03 position lost: no distance, last position faded, own line says since when", async () => {

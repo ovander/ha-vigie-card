@@ -5,6 +5,14 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+### Fixed
+- Anchor card, from the E-09 bench pre-run in Home Assistant 2026.2.3 (ovander/ha-vigie#80):
+  - a dragging boat stays in view: the map takes in the boat when it leaves the circle;
+  - *Outside the circle* (amber) during the alarm's confirmation delay, instead of a green
+    *Watching* next to a red gauge;
+  - times (*Dragging since…*, *position lost since…*) follow your 12/24 h setting in
+    Home Assistant, not only the language.
+
 ### Added
 - Anchor card: the swing track since the drop, from Home Assistant's history of your boat
   (one read-only request per drop, then the positions seen live; at most `track_hours`,
