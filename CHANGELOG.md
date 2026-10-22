@@ -5,6 +5,10 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.1.0-beta.2] - 2026-10-22
+
+Fixes the map tiles in Home Assistant. Needs Vigie 0.3.0-beta.1 or later, as before.
+
 ### Fixed
 - OpenStreetMap tiles were all replaced by a "403 — Access blocked" image in Home Assistant
   (ovander/ha-vigie#71): Home Assistant's page sends no `Referer` to other sites, and
@@ -39,5 +43,6 @@ that sandbox); the check with real map tiles and on board is still to do.
   release (first view at world zoom, label flicker, popup pushed out of view, decimal
   separator, blank editor), each covered by a test.
 
-[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.1.0-beta.1...HEAD
+[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.1.0-beta.2...HEAD
+[0.1.0-beta.2]: https://github.com/ovander/ha-vigie-card/compare/v0.1.0-beta.1...v0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/ovander/ha-vigie-card/releases/tag/v0.1.0-beta.1
