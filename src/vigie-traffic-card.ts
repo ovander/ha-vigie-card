@@ -12,7 +12,7 @@ import { css, html, LitElement, nothing, type PropertyValues, unsafeCSS } from "
 
 import { type VigieTrafficCardConfig, validateConfig } from "./config";
 import { EDITOR_TAG } from "./editor";
-import { localize } from "./i18n";
+import { localeTag, localize } from "./i18n";
 import { type Anchor, anchorEntities, anchorOf, type HassState, type OwnBoat, ownBoat, targetRows } from "./model";
 import { positionState } from "./own";
 import { ownLine, ownLineStyles } from "./own-line";
@@ -25,7 +25,7 @@ export type { HassState };
 /** The part of Home Assistant's `hass` object the card reads. */
 export interface Hass {
   states: Record<string, HassState | undefined>;
-  locale?: { language?: string };
+  locale?: { language?: string; time_format?: string };
   language?: string;
 }
 
@@ -83,7 +83,7 @@ export class VigieTrafficCard extends LitElement {
   }
 
   private get _language(): string | undefined {
-    return this.hass?.locale?.language ?? this.hass?.language;
+    return localeTag(this.hass?.locale, this.hass?.language);
   }
 
   private _states(): (HassState | undefined)[] {

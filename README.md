@@ -12,8 +12,8 @@ Two dashboard cards for Home Assistant, companions of the
 
 > **Status: beta (P6, P7).** The traffic map and its visual editor work, checked in Home
 > Assistant 2026.2.3 with Vigie's bench scenarios and with map tiles in the owner's lab;
-> the anchor card works, configured in YAML (swing track and editor next). The on-board
-> checks are still to do.
+> the anchor card works, with its swing track and visual editor. The on-board checks are
+> still to do.
 
 ## Traffic map: what it shows
 
@@ -84,12 +84,15 @@ Replace `garnet` with your boat's name as it appears in its entity IDs.
 
 A second card in the same download, for the anchor watch in the cockpit:
 
-- the watch's state in large type: *Watching*, *Waiting for position*, or in red
+- the watch's state in large type: *Watching*, *Waiting for position* or *Outside the
+  circle* (before the alarm's 20 s delay ends), or in red
   *Dragging* / *Position lost* with the time it started;
 - the distance to the anchor against the radius (`32 / 50 m`) and a gauge, amber from
   80 % of the radius, red outside;
 - the bearing to the anchor, the largest distance since the drop and the time at anchor;
-- a small map centred on the anchor, with the swing circle and your boat;
+- a small map centred on the anchor, with the swing circle, your boat and its swing track
+  since the drop (from Home Assistant's history, so it survives a page reload; at most
+  `track_hours`, 6 by default);
 - your boat's position, SOG, COG and heading, as on the traffic map;
 - three buttons: **Drop anchor here** (at the boat's GPS position, with the current
   radius), **Raise anchor** (only after a confirmation: one tap never stops the watch), and
@@ -111,11 +114,14 @@ switch: switch.garnet_anchor_watch      # required; the other entities follow it
 # radius: number.garnet_anchor_radius
 # own: device_tracker.garnet
 height: 260px
+track_hours: 6                          # swing track drawn, hours; 0 for none
 tiles: https://tile.openstreetmap.org/{z}/{x}/{y}.png
 # overlay: https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png
 ```
 
-The swing track and the visual editor for this card come in the next version.
+Or add it from the dashboard editor (*Vigie anchor watch*): its visual editor picks the
+switch, and the other entities follow. The swing track needs Home Assistant's recorder
+(on by default) to keep your boat's positions.
 
 ## Development
 

@@ -40,6 +40,7 @@ export const STRINGS = {
     "anchor_card.off": "Anchor watch off",
     "anchor_card.watching": "Watching",
     "anchor_card.waiting": "Waiting for position",
+    "anchor_card.outside": "Outside the circle",
     "anchor_card.dragging": "Dragging",
     "anchor_card.position_lost": "Position lost",
     "anchor_card.since": "since {time}",
@@ -57,6 +58,20 @@ export const STRINGS = {
     "anchor_card.no_position": "No GPS position: the anchor is dropped at the boat's position",
     "anchor_card.missing": "Entity {entity} not found: is Vigie set up?",
     "anchor_card.refused": "Refused: {message}",
+    "anchor_editor.switch": "Anchor watch switch",
+    "anchor_editor.switch_help": "The other entities follow its name when left empty",
+    "anchor_editor.distance": "Anchor distance (optional)",
+    "anchor_editor.alarm": "Anchor alarm (optional)",
+    "anchor_editor.radius": "Anchor radius (optional)",
+    "anchor_editor.own": "Own boat tracker (optional)",
+    "anchor_editor.title": "Title",
+    "anchor_editor.height": "Map height",
+    "anchor_editor.track_hours": "Swing track",
+    "anchor_editor.track_hours_help": "Hours of track drawn since the drop; 0 for none",
+    "anchor_editor.tiles": "Map tiles URL",
+    "anchor_editor.tiles_help": "With {z}, {x} and {y}; OpenStreetMap by default",
+    "anchor_editor.overlay": "Overlay tiles URL (optional)",
+    "anchor_editor.overlay_help": "E.g. OpenSeaMap sea marks: https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
     "editor.entity": "AIS targets sensor",
     "editor.own": "Own boat tracker",
     "editor.collision_risk": "Collision risk (optional)",
@@ -125,6 +140,7 @@ export const STRINGS = {
     "anchor_card.off": "Veille au mouillage arrêtée",
     "anchor_card.watching": "Veille",
     "anchor_card.waiting": "En attente de position",
+    "anchor_card.outside": "Hors du cercle",
     "anchor_card.dragging": "Dérapage",
     "anchor_card.position_lost": "Position perdue",
     "anchor_card.since": "depuis {time}",
@@ -142,6 +158,20 @@ export const STRINGS = {
     "anchor_card.no_position": "Pas de position GPS : l'ancre est mouillée à la position du bateau",
     "anchor_card.missing": "Entité {entity} introuvable : Vigie est-il configuré ?",
     "anchor_card.refused": "Refusé : {message}",
+    "anchor_editor.switch": "Interrupteur de veille au mouillage",
+    "anchor_editor.switch_help": "Les autres entités suivent son nom si elles sont laissées vides",
+    "anchor_editor.distance": "Distance à l'ancre (facultatif)",
+    "anchor_editor.alarm": "Alarme de mouillage (facultatif)",
+    "anchor_editor.radius": "Rayon de mouillage (facultatif)",
+    "anchor_editor.own": "Suivi du bateau (facultatif)",
+    "anchor_editor.title": "Titre",
+    "anchor_editor.height": "Hauteur de la carte",
+    "anchor_editor.track_hours": "Trace d'évitage",
+    "anchor_editor.track_hours_help": "Heures de trace affichées depuis le mouillage ; 0 pour aucune",
+    "anchor_editor.tiles": "URL des tuiles de carte",
+    "anchor_editor.tiles_help": "Avec {z}, {x} et {y} ; OpenStreetMap par défaut",
+    "anchor_editor.overlay": "URL des tuiles superposées (facultatif)",
+    "anchor_editor.overlay_help": "Par ex. les marques OpenSeaMap : https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
     "editor.entity": "Capteur des cibles AIS",
     "editor.own": "Suivi du bateau",
     "editor.collision_risk": "Risque de collision (facultatif)",
@@ -180,6 +210,22 @@ export const STRINGS = {
 
 export type Language = keyof typeof STRINGS;
 export type StringKey = keyof (typeof STRINGS)["en"];
+
+/**
+ * The locale tag the cards format with: Home Assistant's language, with the user's 12/24 h
+ * setting as a Unicode extension (`en-u-hc-h23`) so times follow it (E-09 pre-run: "05:01 PM"
+ * for a 24 h user). "language" and "system" keep the language's own format.
+ */
+export function localeTag(
+  locale?: { language?: string; time_format?: string },
+  fallback?: string,
+): string | undefined {
+  const base = locale?.language ?? fallback;
+  if (!base) return undefined;
+  if (locale?.time_format === "24") return `${base}-u-hc-h23`;
+  if (locale?.time_format === "12") return `${base}-u-hc-h12`;
+  return base;
+}
 
 /** The card's language for a Home Assistant language tag ("fr", "fr-BE"…); English otherwise. */
 export function languageOf(tag: string | undefined): Language {

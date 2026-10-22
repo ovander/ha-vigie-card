@@ -1,9 +1,17 @@
-// U-ACARD-01…03, 05…08: the anchor card's logic (TEST HA-SAIL-TEST-001 §3.9), hand values
+// U-ACARD-01…08: the anchor card's logic (TEST HA-SAIL-TEST-001 §3.9), hand values
 import { describe, expect, it } from "vitest";
 
 import { ConfigError } from "../../src/config";
 import { validateAnchorConfig } from "../../src/anchor-config";
-import { gauge, radiusStep, statusOf, swingBounds, timeAtAnchor } from "../../src/anchor-model";
+import {
+  gauge,
+  historyRequest,
+  radiusStep,
+  statusOf,
+  swingBounds,
+  timeAtAnchor,
+  trackFrom,
+} from "../../src/anchor-model";
 import { localize, STRINGS } from "../../src/i18n";
 import type { HassState } from "../../src/model";
 
@@ -29,6 +37,10 @@ describe("U-ACARD-02 status", () => {
     expect(statusOf(on(), on({ reason: "drag" }), metres(55))).toBe("dragging");
     expect(statusOf(on(), on({ reason: "no_position" }), unavailable)).toBe("position_lost");
     expect(statusOf(on(), off, unavailable)).toBe("waiting");
+    // Outside before the alarm's confirmation delay ends (E-09 pre-run: green "Watching" at 87 / 50 m)
+    const at = (m: number) => ({ state: String(m), attributes: { radius_m: 50 } });
+    expect(statusOf(on(), off, at(51))).toBe("outside");
+    expect(statusOf(on(), off, at(50))).toBe("watching"); // on the circle is inside (§8.4)
     expect(statusOf(undefined, undefined, undefined)).toBe("off");
   });
 });
@@ -41,6 +53,52 @@ describe("U-ACARD-03 radius step", () => {
     expect(radiusStep(497, limits, +1)).toBe(500);
     expect(radiusStep(500, limits, +1)).toBeNull();
     expect(radiusStep(10, limits, -1)).toBeNull();
+  });
+});
+
+describe("U-ACARD-04 swing track", () => {
+  const armed = new Date("2026-10-22T10:00:00Z");
+  const now = new Date("2026-10-22T18:00:00Z"); // 8 h after the drop
+  const at = (iso: string, lat = 43.5, lon = 7.25) => ({ s: "not_home", a: { latitude: lat, longitude: lon }, lu: Date.parse(iso) / 1000 });
+  const history = (rows: unknown[]) => ({ "device_tracker.garnet": rows });
+
+  it("keeps the points since the drop and within track_hours, in time order", () => {
+    const rows = [
+      at("2026-10-22T09:59:00Z"), // before the drop
+      at("2026-10-22T11:30:00Z"), // older than 6 h
+      at("2026-10-22T17:00:00Z", 43.5001),
+      at("2026-10-22T12:30:00Z", 43.5002), // out of order
+      { s: "unavailable", a: {}, lu: Date.parse("2026-10-22T13:00:00Z") / 1000 }, // no position
+    ];
+    const track = trackFrom(history(rows), "device_tracker.garnet", armed, 6, now);
+    expect(track.map((p) => p.lat)).toEqual([43.5002, 43.5001]);
+  });
+
+  it("thins a long history to at most 500 points, first and last kept", () => {
+    const rows = Array.from({ length: 1200 }, (_, i) => ({
+      s: "not_home",
+      a: { latitude: 43.5 + i * 1e-6, longitude: 7.25 },
+      lu: Date.parse("2026-10-22T13:00:00Z") / 1000 + i * 10,
+    }));
+    const track = trackFrom(history(rows), "device_tracker.garnet", armed, 6, now);
+    expect(track.length).toBeLessThanOrEqual(500);
+    expect(track[0].lat).toBeCloseTo(43.5, 9);
+    expect(track[track.length - 1].lat).toBeCloseTo(43.5 + 1199e-6, 9);
+    expect(track.every((p, i) => i === 0 || p.t > track[i - 1].t)).toBe(true);
+  });
+
+  it("asks Home Assistant's history from the drop, or track_hours back; nothing at 0", () => {
+    expect(historyRequest("device_tracker.garnet", armed, 6, now)).toEqual({
+      type: "history/history_during_period",
+      start_time: "2026-10-22T12:00:00.000Z",
+      entity_ids: ["device_tracker.garnet"],
+      minimal_response: false,
+      no_attributes: false,
+      significant_changes_only: false,
+    });
+    const soon = new Date("2026-10-22T10:30:00Z");
+    expect(historyRequest("device_tracker.garnet", armed, 6, soon)?.start_time).toBe("2026-10-22T10:00:00.000Z");
+    expect(historyRequest("device_tracker.garnet", armed, 0, now)).toBeNull();
   });
 });
 
@@ -102,7 +160,7 @@ describe("U-ACARD-08 translations", () => {
     for (const key of keys) {
       expect(STRINGS.fr[key as keyof typeof STRINGS.fr], key).toBeTruthy();
     }
-    for (const status of ["off", "watching", "waiting", "dragging", "position_lost"]) {
+    for (const status of ["off", "watching", "waiting", "outside", "dragging", "position_lost"]) {
       expect(localize("fr", `anchor_card.${status}` as keyof typeof STRINGS.en)).not.toContain("anchor_card.");
     }
   });

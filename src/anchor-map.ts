@@ -14,6 +14,8 @@ import { COLORS } from "./style";
 
 export interface AnchorMapView {
   anchor: Anchor | null;
+  /** The swing track since the drop (OD-36), oldest first. */
+  track: [number, number][];
   own: OwnBoat | null;
   lastOwn: OwnBoat | null;
   ownState: PositionState;
@@ -25,8 +27,9 @@ const OFF_ZOOM = 17;
 export class AnchorMap {
   readonly map: L.Map;
   private readonly anchorLayer = L.layerGroup();
+  private readonly trackLayer = L.layerGroup();
   private readonly ownLayer = L.layerGroup();
-  private view: AnchorMapView = { anchor: null, own: null, lastOwn: null, ownState: { current: true, since: null } };
+  private view: AnchorMapView = { anchor: null, track: [], own: null, lastOwn: null, ownState: { current: true, since: null } };
   /** What the view was last fitted to: refitted only when the anchor or radius changes. */
   private fittedTo: string | null = null;
   private ownOpen = false;
@@ -41,6 +44,7 @@ export class AnchorMap {
     this.map = L.map(container, { zoomControl: true, attributionControl: true, fadeAnimation: false });
     addTiles(this.map, tiles, overlay);
     this.anchorLayer.addTo(this.map);
+    this.trackLayer.addTo(this.map);
     this.ownLayer.addTo(this.map);
     this.map.setView([0, 0], 2);
     this.map.on("popupopen", () => (this.ownOpen = true));
@@ -52,6 +56,7 @@ export class AnchorMap {
   update(view: AnchorMapView): void {
     this.view = view;
     this.drawAnchor();
+    this.drawTrack();
     this.drawOwn();
     this.fit();
   }
@@ -72,15 +77,38 @@ export class AnchorMap {
     const { anchor } = this.view;
     const boat = this.view.own ?? this.view.lastOwn;
     if (anchor) {
-      const key = `${anchor.lat},${anchor.lon},${anchor.radius_m}`;
+      // The circle; and the boat when it is out of it, so a dragging boat stays in view
+      // (E-09 pre-run: it was cut at the map's edge)
+      const bounds = L.latLngBounds(swingBounds(anchor.lat, anchor.lon, anchor.radius_m));
+      if (boat && !bounds.contains([boat.lat, boat.lon])) bounds.extend([boat.lat, boat.lon]);
+      const key = bounds.toBBoxString();
       if (key === this.fittedTo) return;
-      this.map.fitBounds(swingBounds(anchor.lat, anchor.lon, anchor.radius_m), { animate: false, padding: [8, 8] });
+      this.map.fitBounds(bounds, { animate: false, padding: [16, 16] });
       this.fittedTo = key;
     } else if (boat) {
       const zoom = this.fittedTo === "own" ? this.map.getZoom() : OFF_ZOOM;
       this.map.setView([boat.lat, boat.lon], zoom, { animate: false });
       this.fittedTo = "own";
     }
+  }
+
+  /** Points of the swing track drawn, for tests and diagnostics. */
+  get trackLength(): number {
+    return this.view.track.length;
+  }
+
+  private drawTrack(): void {
+    this.trackLayer.clearLayers();
+    if (this.view.track.length < 2) return;
+    this.trackLayer.addLayer(
+      L.polyline(this.view.track, {
+        color: COLORS.own,
+        weight: 1.5,
+        opacity: 0.6,
+        interactive: false,
+        className: "vigie-track",
+      }),
+    );
   }
 
   private drawAnchor(): void {

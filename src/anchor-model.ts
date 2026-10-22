@@ -6,7 +6,7 @@
 import { displace, type LatLon, METRES_PER_NM } from "./geo";
 import { type Anchor, anchorOf, type HassState } from "./model";
 
-export type AnchorStatus = "off" | "watching" | "waiting" | "dragging" | "position_lost";
+export type AnchorStatus = "off" | "watching" | "waiting" | "outside" | "dragging" | "position_lost";
 
 const usable = (s?: HassState): s is HassState =>
   s !== undefined && s.state !== "unavailable" && s.state !== "unknown";
@@ -23,13 +23,17 @@ const date = (v: unknown): Date | null => {
 };
 
 /**
- * The status line. Never *watching* while the alarm is on or the position is unknown; an
- * alarm with an unknown reason shows as dragging (the safe side).
+ * The status line. Never *watching* while the alarm is on, the position is unknown or the
+ * boat is outside the circle before the alarm's confirmation delay ends (*outside*, E-09
+ * pre-run); an alarm with an unknown reason shows as dragging (the safe side).
  */
 export function statusOf(watch?: HassState, alarm?: HassState, distance?: HassState): AnchorStatus {
   if (watch?.state !== "on") return "off";
   if (alarm?.state === "on") return alarm.attributes.reason === "no_position" ? "position_lost" : "dragging";
-  return numeric(distance) === null ? "waiting" : "watching";
+  const metres = numeric(distance);
+  if (metres === null) return "waiting";
+  const radius = num(distance?.attributes.radius_m);
+  return radius !== null && metres > radius ? "outside" : "watching";
 }
 
 export type GaugeLevel = "normal" | "amber" | "red" | "none";
@@ -108,4 +112,63 @@ export function readAnchor(
       step: num(r.step) ?? 5,
     },
   };
+}
+
+/** One point of the swing track; `t` in ms since the epoch. */
+export interface TrackPoint {
+  t: number;
+  lat: number;
+  lon: number;
+}
+
+/** At most this many points are drawn (SPEC §9.8). */
+export const MAX_TRACK_POINTS = 500;
+
+/** Where the track starts: the drop, or `hours` back when the drop is older. */
+function trackStart(armedAt: Date, hours: number, now: Date): number {
+  return Math.max(armedAt.getTime(), now.getTime() - hours * 3_600_000);
+}
+
+/**
+ * The request for Home Assistant's history of the own tracker (OD-36), read only; null
+ * when the track is off (`track_hours: 0`).
+ */
+export function historyRequest(entity: string, armedAt: Date, hours: number, now: Date) {
+  if (hours <= 0) return null;
+  return {
+    type: "history/history_during_period",
+    start_time: new Date(trackStart(armedAt, hours, now)).toISOString(),
+    entity_ids: [entity],
+    minimal_response: false,
+    no_attributes: false,
+    significant_changes_only: false,
+  };
+}
+
+/** Evenly spaced points, first and last kept. */
+export function thin(points: TrackPoint[], max = MAX_TRACK_POINTS): TrackPoint[] {
+  if (points.length <= max) return points;
+  const step = (points.length - 1) / (max - 1);
+  return Array.from({ length: max }, (_, i) => points[Math.round(i * step)]);
+}
+
+/**
+ * The swing track from a history answer (`{entity: [{s, a, lu}]}`, Home Assistant's compressed
+ * format): positions since the drop and within `hours`, in time order, thinned.
+ */
+export function trackFrom(history: unknown, entity: string, armedAt: Date, hours: number, now: Date): TrackPoint[] {
+  const rows = (history as Record<string, unknown> | null)?.[entity];
+  if (!Array.isArray(rows)) return [];
+  const start = trackStart(armedAt, hours, now);
+  const points: TrackPoint[] = [];
+  for (const row of rows as { a?: Record<string, unknown>; lu?: unknown; lc?: unknown }[]) {
+    const seconds = num(row?.lu) ?? num(row?.lc);
+    const lat = num(row?.a?.latitude);
+    const lon = num(row?.a?.longitude);
+    if (seconds === null || lat === null || lon === null) continue;
+    const t = seconds * 1000;
+    if (t >= start) points.push({ t, lat, lon });
+  }
+  points.sort((a, b) => a.t - b.t);
+  return thin(points);
 }

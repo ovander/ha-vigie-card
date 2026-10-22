@@ -1,7 +1,8 @@
 // U-CARD-07: translations (TEST HA-SAIL-TEST-001 §3.8)
 import { describe, expect, it } from "vitest";
 
-import { languageOf, localize, STRINGS } from "../../src/i18n";
+import { languageOf, localeTag, localize, STRINGS } from "../../src/i18n";
+import { formatTime } from "../../src/own";
 
 describe("U-CARD-07 translations", () => {
   it("has the same keys in every language, none empty", () => {
@@ -26,6 +27,18 @@ describe("U-CARD-07 translations", () => {
     expect(languageOf(undefined)).toBe("en");
     expect(localize("fr", "targets", { count: 4 })).toBe("4 cibles AIS");
     expect(localize("en", "targets", { count: 4 })).toBe("4 AIS targets");
+  });
+});
+
+describe("Home Assistant's time format (E-09 pre-run)", () => {
+  it("follows the user's 12/24 h setting, else the language", () => {
+    const at = new Date(2026, 9, 22, 17, 1);
+    expect(formatTime(localeTag({ language: "en", time_format: "24" }), at)).toBe("17:01");
+    expect(formatTime(localeTag({ language: "fr", time_format: "12" }), at)).toMatch(/^05:01\s?PM$/i);
+    expect(formatTime(localeTag({ language: "fr", time_format: "language" }), at)).toBe("17:01");
+    expect(localeTag({ language: "en" })).toBe("en");
+    expect(localeTag(undefined, "de")).toBe("de");
+    expect(languageOf(localeTag({ language: "fr", time_format: "24" }))).toBe("fr");
   });
 });
 

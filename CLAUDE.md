@@ -23,7 +23,8 @@ in the same work package.
 - **Read only, with one exception (SPEC OD-35).** The traffic card calls no service. The
   anchor card may call exactly `switch.turn_on`, `switch.turn_off` (after a confirmation in
   the card) and `number.set_value` on its configured entities, nothing else (F-ACARD-10).
-  No connection of the cards' own besides map tiles.
+  The anchor card also reads the own tracker's history (`history/history_during_period`,
+  read only, OD-36). No connection of the cards' own besides map tiles.
 - **Never weaken a gate**: no skipped test without an issue, no `@ts-ignore` without a
   one-line justification.
 

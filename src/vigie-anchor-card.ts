@@ -13,8 +13,19 @@ import { css, html, LitElement, nothing, type PropertyValues, unsafeCSS } from "
 
 import { type VigieAnchorCardConfig, validateAnchorConfig } from "./anchor-config";
 import { AnchorMap, type AnchorMapView } from "./anchor-map";
-import { type AnchorReading, gauge, radiusStep, readAnchor, timeAtAnchor } from "./anchor-model";
-import { formatNumber, localize, type StringKey } from "./i18n";
+import {
+  type AnchorReading,
+  gauge,
+  historyRequest,
+  radiusStep,
+  readAnchor,
+  thin,
+  timeAtAnchor,
+  type TrackPoint,
+  trackFrom,
+} from "./anchor-model";
+import { ANCHOR_EDITOR_TAG } from "./editor";
+import { formatNumber, localeTag, localize, type StringKey } from "./i18n";
 import { type HassState, type OwnBoat, ownBoat } from "./model";
 import { formatTime, positionState } from "./own";
 import { ownLine, ownLineStyles } from "./own-line";
@@ -24,9 +35,11 @@ export const ANCHOR_CARD_TAG = "vigie-anchor-card";
 /** The part of Home Assistant's `hass` object the anchor card uses. */
 export interface AnchorHass {
   states: Record<string, HassState | undefined>;
-  locale?: { language?: string };
+  locale?: { language?: string; time_format?: string };
   language?: string;
   callService(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
+  /** Home Assistant's WebSocket call; the card only reads the own tracker's history (OD-36). */
+  callWS?<T>(message: Record<string, unknown>): Promise<T>;
 }
 
 export class VigieAnchorCard extends LitElement {
@@ -42,6 +55,11 @@ export class VigieAnchorCard extends LitElement {
   private _confirming = false;
   private _error: string | null = null;
   private _lastOwn: OwnBoat | null = null;
+  /** The swing track, for the drop it was loaded for (its `armed_at`). */
+  private _track: TrackPoint[] = [];
+  private _trackFor: string | null = null;
+  private _trackLoaded = false;
+  private _trackTracker?: HassState;
   private _map?: AnchorMap;
   private _resize?: ResizeObserver;
   private _drawn: unknown[] = [];
@@ -60,6 +78,11 @@ export class VigieAnchorCard extends LitElement {
     return 7;
   }
 
+  /** The visual editor (F-ACARD-11). */
+  static getConfigElement(): HTMLElement {
+    return document.createElement(ANCHOR_EDITOR_TAG);
+  }
+
   /** Configuration proposed when the card is added from the card picker. */
   static getStubConfig(hass?: { states?: Record<string, unknown> }): Record<string, string> {
     const ids = Object.keys(hass?.states ?? {});
@@ -73,7 +96,7 @@ export class VigieAnchorCard extends LitElement {
   }
 
   private get _language(): string | undefined {
-    return this.hass?.locale?.language ?? this.hass?.language;
+    return localeTag(this.hass?.locale, this.hass?.language);
   }
 
   private _states(): (HassState | undefined)[] {
@@ -198,10 +221,53 @@ export class VigieAnchorCard extends LitElement {
     </ha-card>`;
   }
 
+  /**
+   * The swing track (OD-36): one history request per drop, then the positions seen live.
+   * Watch off, track off or a new drop: the track starts again.
+   */
+  private _syncTrack(): void {
+    const c = this._config!;
+    const r = this._reading();
+    const armedAt = this.hass!.states[c.switch]?.attributes.armed_at;
+    if (r.status === "off" || r.armedAt === null || c.track_hours <= 0 || typeof armedAt !== "string") {
+      this._track = [];
+      this._trackFor = null;
+      return;
+    }
+    const tracker = this.hass!.states[c.own];
+    if (armedAt !== this._trackFor) {
+      this._trackFor = armedAt;
+      this._track = [];
+      this._trackLoaded = false;
+      const since = r.armedAt;
+      const request = historyRequest(c.own, since, c.track_hours, new Date());
+      if (!request || !this.hass!.callWS) return;
+      this.hass!.callWS<unknown>(request).then(
+        (history) => {
+          if (this._trackFor !== armedAt) return; // a newer drop
+          this._track = trackFrom(history, c.own, since, c.track_hours, new Date());
+          this._trackLoaded = true;
+          this._trackTracker = this.hass?.states[c.own];
+          this._map?.update(this._view());
+        },
+        () => (this._trackLoaded = true), // no history (recorder off): the live points only
+      );
+      return;
+    }
+    if (!this._trackLoaded || tracker === this._trackTracker) return;
+    this._trackTracker = tracker;
+    const own = ownBoat(tracker);
+    const last = this._track[this._track.length - 1];
+    if (own && (!last || last.lat !== own.lat || last.lon !== own.lon)) {
+      this._track = thin([...this._track, { t: Date.now(), lat: own.lat, lon: own.lon }]);
+    }
+  }
+
   private _view(): AnchorMapView {
     const tracker = this.hass!.states[this._config!.own];
     return {
       anchor: this._reading().anchor,
+      track: this._track.map((p) => [p.lat, p.lon]),
       own: ownBoat(tracker),
       lastOwn: this._lastOwn,
       ownState: positionState(tracker),
@@ -221,6 +287,7 @@ export class VigieAnchorCard extends LitElement {
       this._resize.observe(container);
       this._drawn = [];
     }
+    this._syncTrack();
     const states = this._states();
     if (states.length === this._drawn.length && states.every((s, i) => s === this._drawn[i])) return;
     this._drawn = states;
@@ -260,7 +327,8 @@ export class VigieAnchorCard extends LitElement {
       .status-watching {
         color: var(--success-color, #2e7d32);
       }
-      .status-waiting {
+      .status-waiting,
+      .status-outside {
         color: var(--warning-color, #f57c00);
       }
       .status-off {
