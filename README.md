@@ -96,7 +96,12 @@ A second card in the same download, for the anchor watch in the cockpit:
 - your boat's position, SOG, COG and heading, as on the traffic map;
 - three buttons: **Drop anchor here** (at the boat's GPS position, with the current
   radius), **Raise anchor** (only after a confirmation: one tap never stops the watch), and
-  the radius **−** / **+** by 5 m.
+  the radius **−** / **+** by 5 m;
+- two buttons to put the circle where the anchor really is (the boat has dropped back by
+  the time the watch is on): **Recenter**, after 10 minutes at anchor, on the centre of the
+  swing track; **Move the anchor**, by tapping the map. Both draw the new circle dashed and
+  ask before changing anything; the time at anchor and the radius are kept. Disabled while
+  the alarm is on. Needs Vigie with `keep_since` (the release after 0.3.0-beta.1).
 
 These buttons are the only actions either card takes, through Home Assistant; the traffic
 map never changes anything. To drop the anchor at a position read on the chartplotter,
