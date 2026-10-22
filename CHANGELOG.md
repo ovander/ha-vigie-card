@@ -5,6 +5,11 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.2.0-beta.2] - 2026-10-22
+
+Your boat's position in decimal degrees, and the released file carries its version again.
+No change to the cards' configuration; needs Vigie 0.3.0-beta.1 or later, as before.
+
 ### Added
 - Your boat's position also in decimal degrees (`43.501917, 7.250000`) in the details
   shown on tapping the boat, on both cards: signed, with a point, whatever the language, so
@@ -74,7 +79,8 @@ that sandbox); the check with real map tiles and on board is still to do.
   release (first view at world zoom, label flicker, popup pushed out of view, decimal
   separator, blank editor), each covered by a test.
 
-[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.1...HEAD
+[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.2...HEAD
+[0.2.0-beta.2]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.1...v0.2.0-beta.2
 [0.2.0-beta.1]: https://github.com/ovander/ha-vigie-card/compare/v0.1.0-beta.2...v0.2.0-beta.1
 [0.1.0-beta.2]: https://github.com/ovander/ha-vigie-card/compare/v0.1.0-beta.1...v0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/ovander/ha-vigie-card/releases/tag/v0.1.0-beta.1
