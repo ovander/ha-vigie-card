@@ -23,6 +23,18 @@ export function formatPosition(tag: string | undefined, lat: number, lon: number
   return [degreesMinutes(tag, lat, "N", "S"), degreesMinutes(tag, lon, "E", "W")];
 }
 
+/**
+ * Signed decimal degrees, point and six decimals (about 0.1 m), whatever the language:
+ * `43.501917, 7.250000` pastes as is into charting apps or `vigie.drop_anchor`.
+ */
+export function formatDecimal(lat: number, lon: number): string {
+  const fixed = (v: number) => {
+    const text = v.toFixed(6);
+    return text === "-0.000000" ? "0.000000" : text;
+  };
+  return `${fixed(lat)}, ${fixed(lon)}`;
+}
+
 export interface PositionState {
   /** The tracker is available: its fix is younger than Vigie's staleness timeout (10 s). */
   current: boolean;
@@ -60,12 +72,16 @@ export function positionStateText(tag: string | undefined, state: PositionState)
   return localize(tag, "position_lost_since", { time: formatTime(tag, state.since) });
 }
 
-/** Label and value pairs for the own boat: position, SOG, COG, heading (`—` when unknown). */
-export function ownLines(tag: string | undefined, own: OwnBoat): [string, string][] {
+/**
+ * Label and value pairs for the own boat: position, SOG, COG, heading (`—` when unknown);
+ * the details add the position in decimal degrees.
+ */
+export function ownLines(tag: string | undefined, own: OwnBoat, decimal = false): [string, string][] {
   const t = (key: Parameters<typeof localize>[1]) => localize(tag, key);
   const dash = "—";
   return [
     [t("position"), formatPosition(tag, own.lat, own.lon).join(" ")],
+    ...(decimal ? [[t("position_dd"), formatDecimal(own.lat, own.lon)] as [string, string]] : []),
     [t("sog"), own.sog === null ? dash : `${formatNumber(tag, own.sog, 1)} ${t("unit_kn")}`],
     [t("cog"), own.cog === null ? dash : `${formatNumber(tag, own.cog, 0)}°`],
     [t("heading"), own.heading === null ? dash : `${formatNumber(tag, own.heading, 0)}°`],

@@ -99,6 +99,9 @@ describe("F-ACARD", () => {
     for (const part of ["43° 29.983′ N", "7° 15.003′ E", "SOG 0.0 kn", "Position current"]) {
       expect(own).toContain(part);
     }
+    one(card, ".vigie-own")!.click();
+    await settle(card);
+    expect(text(one(card, ".vigie-details"))).toContain("Position (dd)43.499712, 7.250052");
     expect(calls).toHaveLength(0); // reading never calls a service
   });
 

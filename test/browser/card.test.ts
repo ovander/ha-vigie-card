@@ -335,7 +335,8 @@ describe("F-CARD-11 own boat", () => {
     all(card, ".vigie-own")[0].click();
     await settle(card);
     const details = (card.shadowRoot!.querySelector(".vigie-details")?.textContent ?? "").replace(/\s+/g, " ");
-    for (const part of ["43° 30.115′ N", "7° 15.000′ E", "SOG6.0 kn", "COG0°", "Position current"]) {
+    for (const part of ["43° 30.115′ N", "7° 15.000′ E", "Position (dd)43.501917, 7.250000", "SOG6.0 kn", "COG0°",
+      "Position current"]) {
       expect(details).toContain(part);
     }
     // The details survive an update (the own marker is redrawn every time)

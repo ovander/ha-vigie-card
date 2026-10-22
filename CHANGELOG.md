@@ -5,6 +5,11 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+### Added
+- Your boat's position also in decimal degrees (`43.501917, 7.250000`) in the details
+  shown on tapping the boat, on both cards: signed, with a point, whatever the language, so
+  it pastes into a charting app or `vigie.drop_anchor` (ovander/ha-vigie#77).
+
 ### Fixed
 - The released file carries its version again: since both cards are bundled together
   (0.2.0-beta.1), the stamped version was dropped from the file as unused. It is now shown

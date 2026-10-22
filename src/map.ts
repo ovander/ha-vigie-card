@@ -102,7 +102,7 @@ export function ownDetails(lang: string | undefined, own: OwnBoat, state: Positi
   title.textContent = localize(lang, "own_boat");
   box.appendChild(title);
   const table = document.createElement("table");
-  for (const [label, value] of ownLines(lang, own)) {
+  for (const [label, value] of ownLines(lang, own, true)) {
     const tr = table.insertRow();
     tr.insertCell().textContent = label;
     tr.insertCell().textContent = value;
