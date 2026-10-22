@@ -14,6 +14,8 @@ import { COLORS } from "./style";
 
 export interface AnchorMapView {
   anchor: Anchor | null;
+  /** The swing track since the drop (OD-36), oldest first. */
+  track: [number, number][];
   own: OwnBoat | null;
   lastOwn: OwnBoat | null;
   ownState: PositionState;
@@ -25,8 +27,9 @@ const OFF_ZOOM = 17;
 export class AnchorMap {
   readonly map: L.Map;
   private readonly anchorLayer = L.layerGroup();
+  private readonly trackLayer = L.layerGroup();
   private readonly ownLayer = L.layerGroup();
-  private view: AnchorMapView = { anchor: null, own: null, lastOwn: null, ownState: { current: true, since: null } };
+  private view: AnchorMapView = { anchor: null, track: [], own: null, lastOwn: null, ownState: { current: true, since: null } };
   /** What the view was last fitted to: refitted only when the anchor or radius changes. */
   private fittedTo: string | null = null;
   private ownOpen = false;
@@ -41,6 +44,7 @@ export class AnchorMap {
     this.map = L.map(container, { zoomControl: true, attributionControl: true, fadeAnimation: false });
     addTiles(this.map, tiles, overlay);
     this.anchorLayer.addTo(this.map);
+    this.trackLayer.addTo(this.map);
     this.ownLayer.addTo(this.map);
     this.map.setView([0, 0], 2);
     this.map.on("popupopen", () => (this.ownOpen = true));
@@ -52,6 +56,7 @@ export class AnchorMap {
   update(view: AnchorMapView): void {
     this.view = view;
     this.drawAnchor();
+    this.drawTrack();
     this.drawOwn();
     this.fit();
   }
@@ -81,6 +86,25 @@ export class AnchorMap {
       this.map.setView([boat.lat, boat.lon], zoom, { animate: false });
       this.fittedTo = "own";
     }
+  }
+
+  /** Points of the swing track drawn, for tests and diagnostics. */
+  get trackLength(): number {
+    return this.view.track.length;
+  }
+
+  private drawTrack(): void {
+    this.trackLayer.clearLayers();
+    if (this.view.track.length < 2) return;
+    this.trackLayer.addLayer(
+      L.polyline(this.view.track, {
+        color: COLORS.own,
+        weight: 1.5,
+        opacity: 0.6,
+        interactive: false,
+        className: "vigie-track",
+      }),
+    );
   }
 
   private drawAnchor(): void {

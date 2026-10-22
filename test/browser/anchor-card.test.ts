@@ -1,4 +1,4 @@
-// F-ACARD-01…06, 08…10 (TEST HA-SAIL-TEST-001 §4.8): the anchor card in headless Chromium,
+// F-ACARD-01…10 (TEST HA-SAIL-TEST-001 §4.8): the anchor card in headless Chromium,
 // with states recorded from Vigie on the `anchor-drag` preset (test/fixtures). The fake
 // `hass` records every service call. Tiles are a blank data URL: no network.
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,7 +11,7 @@ const BLANK =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 const CONFIG = { type: "custom:vigie-anchor-card", switch: "switch.garnet_anchor_watch", tiles: `${BLANK}#{z}/{x}/{y}` };
 type States = Record<string, HassState | undefined>;
-type Moment = keyof typeof moments;
+type Moment = Exclude<keyof typeof moments, "history">;
 interface Call {
   domain: string;
   service: string;
@@ -21,6 +21,15 @@ interface Call {
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const cards: VigieAnchorCard[] = [];
 const allCalls: Call[] = [];
+const allMessages: Record<string, unknown>[] = [];
+
+/** The recorded history, shifted so its last point is a minute ago. */
+function recentHistory() {
+  const rows = clone(moments.history["device_tracker.garnet"]) as { lu: number }[];
+  const shift = Date.now() / 1000 - 60 - rows[rows.length - 1].lu;
+  for (const row of rows) row.lu += shift;
+  return { "device_tracker.garnet": rows };
+}
 
 /** States of a recorded moment, with the switch armed `minutes` ago. */
 function at(moment: Moment, minutes = 125): States {
@@ -34,7 +43,13 @@ function at(moment: Moment, minutes = 125): States {
 
 function hass(states: States, language = "en", refuse?: string) {
   const calls: Call[] = [];
+  const messages: Record<string, unknown>[] = [];
   const h: AnchorHass = {
+    callWS: async <T>(message: Record<string, unknown>) => {
+      messages.push(message);
+      allMessages.push(message);
+      return recentHistory() as T;
+    },
     states,
     locale: { language },
     callService: async (domain, service, data) => {
@@ -44,7 +59,7 @@ function hass(states: States, language = "en", refuse?: string) {
       if (refuse) throw new Error(refuse);
     },
   };
-  return { h, calls };
+  return { h, calls, messages };
 }
 
 async function settle(card: VigieAnchorCard) {
@@ -54,7 +69,7 @@ async function settle(card: VigieAnchorCard) {
 }
 
 async function mount(states: States, language = "en", refuse?: string, config: object = CONFIG) {
-  const { h, calls } = hass(states, language, refuse);
+  const { h, calls, messages } = hass(states, language, refuse);
   const card = document.createElement(ANCHOR_CARD_TAG) as VigieAnchorCard;
   card.style.display = "block";
   card.style.width = "400px";
@@ -63,7 +78,9 @@ async function mount(states: States, language = "en", refuse?: string, config: o
   document.body.appendChild(card);
   cards.push(card);
   await settle(card);
-  return { card, calls };
+  await new Promise((r) => setTimeout(r, 0)); // the history answer
+  await settle(card);
+  return { card, calls, messages };
 }
 
 const one = (card: VigieAnchorCard, selector: string) => card.shadowRoot!.querySelector<HTMLElement>(selector);
@@ -193,6 +210,32 @@ describe("F-ACARD", () => {
     }
   });
 
+  it("F-ACARD-07 swing track: one history request since the drop, then live points", async () => {
+    const states = at("swinging", 10);
+    const { card, messages } = await mount(states);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({
+      type: "history/history_during_period",
+      entity_ids: ["device_tracker.garnet"],
+      start_time: states["switch.garnet_anchor_watch"]!.attributes.armed_at,
+    });
+    const recorded = moments.history["device_tracker.garnet"].length;
+    expect(card.anchorMap!.trackLength).toBe(recorded);
+    expect(all(card, "path.vigie-track")).toHaveLength(1);
+
+    const moved = clone(states);
+    const own = moved["device_tracker.garnet"]!;
+    own.attributes = { ...own.attributes, latitude: (own.attributes.latitude as number) + 0.0001 };
+    card.hass = hass(moved).h;
+    await settle(card);
+    expect(card.anchorMap!.trackLength).toBe(recorded + 1);
+    expect(messages).toHaveLength(1); // no new request: the hass object changed, not the drop
+
+    const off = await mount(at("swinging", 10), "en", undefined, { ...CONFIG, track_hours: 0 });
+    expect(off.messages).toHaveLength(0);
+    expect(all(off.card, "path.vigie-track")).toHaveLength(0);
+  });
+
   it("F-ACARD-08 a refused call shows Home Assistant's message, nothing else changes", async () => {
     const { card, calls } = await mount(at("swinging"), "en", "Radius out of range");
     one(card, ".radius-up")!.click();
@@ -225,7 +268,7 @@ describe("F-ACARD", () => {
 });
 
 describe("F-ACARD-10 calls", () => {
-  it("F-ACARD-10 only the three calls of SPEC §9.8, on the configured entities", () => {
+  it("F-ACARD-10 only the three calls of SPEC §9.8, on the configured entities, and the history request", () => {
     // Runs after the tests above (same file, in order): every call they made
     const allowed = new Set([
       "switch.turn_on switch.garnet_anchor_watch",
@@ -233,6 +276,12 @@ describe("F-ACARD-10 calls", () => {
       "number.set_value number.garnet_anchor_radius",
     ]);
     expect(allCalls.length).toBeGreaterThanOrEqual(4);
+    // The only other message: the read-only history request for the own tracker (OD-36)
+    expect(allMessages.length).toBeGreaterThan(0);
+    for (const message of allMessages) {
+      expect(message.type).toBe("history/history_during_period");
+      expect(message.entity_ids).toEqual(["device_tracker.garnet"]);
+    }
     for (const call of allCalls) {
       expect(allowed, JSON.stringify(call)).toContain(`${call.domain}.${call.service} ${call.data?.entity_id}`);
       expect(Object.keys(call.data ?? {}).every((k) => k === "entity_id" || k === "value")).toBe(true);
