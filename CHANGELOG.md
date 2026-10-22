@@ -5,6 +5,13 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.2.0-beta.1] - 2026-10-22
+
+Adds the anchor card for the cockpit (Vigie phase P7) and your boat's position, speed and
+course on both cards. Same single file and HACS download as before; needs Vigie
+0.3.0-beta.1 or later, as before (no Vigie change). The anchor card's swing track and
+visual editor come next: configure it in YAML for now.
+
 ### Added
 - `custom:vigie-anchor-card`, in the same file (ovander/ha-vigie#76): the anchor watch in
   the cockpit. Status in large type, distance against the radius with a gauge, bearing,
@@ -53,6 +60,7 @@ that sandbox); the check with real map tiles and on board is still to do.
   release (first view at world zoom, label flicker, popup pushed out of view, decimal
   separator, blank editor), each covered by a test.
 
-[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.1.0-beta.2...HEAD
+[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.1...HEAD
+[0.2.0-beta.1]: https://github.com/ovander/ha-vigie-card/compare/v0.1.0-beta.2...v0.2.0-beta.1
 [0.1.0-beta.2]: https://github.com/ovander/ha-vigie-card/compare/v0.1.0-beta.1...v0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/ovander/ha-vigie-card/releases/tag/v0.1.0-beta.1
