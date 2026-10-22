@@ -14,7 +14,8 @@ import { type VigieTrafficCardConfig, validateConfig } from "./config";
 import { EDITOR_TAG } from "./editor";
 import { localize } from "./i18n";
 import { type Anchor, anchorEntities, anchorOf, type HassState, type OwnBoat, ownBoat, targetRows } from "./model";
-import { ownLines, positionState, positionStateText } from "./own";
+import { positionState } from "./own";
+import { ownLine, ownLineStyles } from "./own-line";
 import { type MapView, TrafficMap } from "./map";
 
 export const CARD_TAG = "vigie-traffic-card";
@@ -145,17 +146,7 @@ export class VigieTrafficCard extends LitElement {
                 d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm8.94 3A8.99 8.99 0 0 0 13 3.06V1h-2v2.06A8.99 8.99 0 0 0 3.06 11H1v2h2.06A8.99 8.99 0 0 0 11 20.94V23h2v-2.06A8.99 8.99 0 0 0 20.94 13H23v-2h-2.06ZM12 19a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg>
             </button>`}
       </div>
-      ${shown
-        ? html`<div class="vigie-own-line">
-            ${ownLines(lang, shown).map(
-              ([label, value], i) =>
-                html`<span>${i === 0 ? value : `${label} ${value}`}</span>`,
-            )}
-            <span class=${ownKnown ? "current" : "warning"}
-              >${positionStateText(lang, positionState(tracker))}</span
-            >
-          </div>`
-        : nothing}
+      ${ownLine(lang, shown, tracker)}
       <div class="status">
         <span class="count">${localize(lang, "targets", { count: sensor.state })}</span>
         ${ownKnown
@@ -206,6 +197,7 @@ export class VigieTrafficCard extends LitElement {
 
   static override styles = [
     unsafeCSS(leafletCss),
+    ownLineStyles,
     css`
       ha-card {
         overflow: hidden;
@@ -236,24 +228,6 @@ export class VigieTrafficCard extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-      }
-      .vigie-own-line {
-        display: flex;
-        gap: 4px 14px;
-        flex-wrap: wrap;
-        padding: 8px 16px 0;
-        font-variant-numeric: tabular-nums;
-      }
-      .vigie-own-line .current {
-        color: var(--secondary-text-color);
-      }
-      .vigie-own-lost {
-        background: none;
-        border: none;
-      }
-      .vigie-details-position {
-        margin-top: 4px;
-        color: var(--secondary-text-color);
       }
       .status {
         display: flex;

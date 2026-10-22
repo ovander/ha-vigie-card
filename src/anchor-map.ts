@@ -1,0 +1,117 @@
+/**
+ * The anchor card's map (SPEC HA-SAIL-SPEC-001 §9.8): north-up, the swing circle filling it,
+ * the anchor, and the own boat (faded at its last position while the position is lost).
+ * Watch off: centred on the boat.
+ */
+
+import * as L from "leaflet";
+
+import { swingBounds } from "./anchor-model";
+import { addTiles, anchorIcon, ownDetails, ownIcon } from "./map";
+import type { Anchor, OwnBoat } from "./model";
+import type { PositionState } from "./own";
+import { COLORS } from "./style";
+
+export interface AnchorMapView {
+  anchor: Anchor | null;
+  own: OwnBoat | null;
+  lastOwn: OwnBoat | null;
+  ownState: PositionState;
+}
+
+/** Zoom of the map while the watch is off: the boat and its surroundings. */
+const OFF_ZOOM = 17;
+
+export class AnchorMap {
+  readonly map: L.Map;
+  private readonly anchorLayer = L.layerGroup();
+  private readonly ownLayer = L.layerGroup();
+  private view: AnchorMapView = { anchor: null, own: null, lastOwn: null, ownState: { current: true, since: null } };
+  /** What the view was last fitted to: refitted only when the anchor or radius changes. */
+  private fittedTo: string | null = null;
+  private ownOpen = false;
+  private redrawing = false;
+
+  constructor(
+    container: HTMLElement,
+    tiles: string,
+    overlay: string | undefined,
+    private readonly language: () => string | undefined,
+  ) {
+    this.map = L.map(container, { zoomControl: true, attributionControl: true, fadeAnimation: false });
+    addTiles(this.map, tiles, overlay);
+    this.anchorLayer.addTo(this.map);
+    this.ownLayer.addTo(this.map);
+    this.map.setView([0, 0], 2);
+    this.map.on("popupopen", () => (this.ownOpen = true));
+    this.map.on("popupclose", () => {
+      if (!this.redrawing) this.ownOpen = false;
+    });
+  }
+
+  update(view: AnchorMapView): void {
+    this.view = view;
+    this.drawAnchor();
+    this.drawOwn();
+    this.fit();
+  }
+
+  invalidateSize(): void {
+    this.map.invalidateSize({ animate: false });
+    this.fit();
+  }
+
+  remove(): void {
+    this.map.remove();
+  }
+
+  /** Waits for a size: a fit on a 0 px map gives the widest zoom (E-08 pre-run). */
+  private fit(): void {
+    const size = this.map.getSize();
+    if (size.x === 0 || size.y === 0) return;
+    const { anchor } = this.view;
+    const boat = this.view.own ?? this.view.lastOwn;
+    if (anchor) {
+      const key = `${anchor.lat},${anchor.lon},${anchor.radius_m}`;
+      if (key === this.fittedTo) return;
+      this.map.fitBounds(swingBounds(anchor.lat, anchor.lon, anchor.radius_m), { animate: false, padding: [8, 8] });
+      this.fittedTo = key;
+    } else if (boat) {
+      const zoom = this.fittedTo === "own" ? this.map.getZoom() : OFF_ZOOM;
+      this.map.setView([boat.lat, boat.lon], zoom, { animate: false });
+      this.fittedTo = "own";
+    }
+  }
+
+  private drawAnchor(): void {
+    this.anchorLayer.clearLayers();
+    const anchor = this.view.anchor;
+    if (!anchor) return;
+    const color = anchor.alarm ? COLORS.anchorAlarm : COLORS.anchor;
+    this.anchorLayer.addLayer(
+      L.circle([anchor.lat, anchor.lon], {
+        radius: anchor.radius_m,
+        color,
+        weight: anchor.alarm ? 3 : 2,
+        fillOpacity: 0.08,
+        interactive: false,
+        className: anchor.alarm ? "vigie-anchor-circle vigie-anchor-alarm" : "vigie-anchor-circle",
+      }),
+    );
+    this.anchorLayer.addLayer(L.marker([anchor.lat, anchor.lon], { icon: anchorIcon(anchor.alarm), interactive: false }));
+  }
+
+  private drawOwn(): void {
+    this.redrawing = true;
+    this.ownLayer.clearLayers();
+    const own = this.view.own ?? this.view.lastOwn;
+    if (own) {
+      const lost = this.view.own === null;
+      const marker = L.marker([own.lat, own.lon], { icon: ownIcon(own, lost), zIndexOffset: 1000, opacity: lost ? 0.4 : 1 });
+      marker.bindPopup(() => ownDetails(this.language(), own, this.view.ownState), { className: "vigie-popup" });
+      this.ownLayer.addLayer(marker);
+      if (this.ownOpen) marker.openPopup();
+    }
+    this.redrawing = false;
+  }
+}

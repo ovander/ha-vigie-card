@@ -4,11 +4,13 @@ Standing instructions for Claude Code in this repository.
 
 ## Sources of truth
 
-The card is component C-12 of Vigie. Its specification and tests live in the Vigie
-repository and win over this code:
+The cards are components C-12 (traffic map) and C-13 (anchor card) of Vigie. Their
+specification and tests live in the Vigie repository and win over this code:
 
-- SPEC `docs/HA-SAIL-SPEC-001.md` §9.7 (decisions OD-29…OD-33) in `ovander/ha-vigie`;
-- TEST `docs/HA-SAIL-TEST-001.md` §3.8 (U-CARD), §4.7 (F-CARD), E-08.
+- SPEC `docs/HA-SAIL-SPEC-001.md` §9.7 (decisions OD-29…OD-33) and §9.8 (OD-34…OD-38) in
+  `ovander/ha-vigie`;
+- TEST `docs/HA-SAIL-TEST-001.md` §3.8 (U-CARD), §3.9 (U-ACARD), §4.7 (F-CARD), §4.8
+  (F-ACARD), E-08, E-09.
 
 Work packages, issues and milestones (P6) are tracked in `ovander/ha-vigie`; PRs here
 reference them as `ovander/ha-vigie#N`. Spec or test changes go to the Vigie repository
@@ -18,8 +20,10 @@ in the same work package.
 
 - **Clean room.** No code from other map cards unless permissively licensed and credited.
 - **Not a navigation display.** No feature that suggests otherwise (charts, routes, depths).
-- **Read only.** The card reads Home Assistant states; it calls no service, opens no
-  connection of its own besides map tiles.
+- **Read only, with one exception (SPEC OD-35).** The traffic card calls no service. The
+  anchor card may call exactly `switch.turn_on`, `switch.turn_off` (after a confirmation in
+  the card) and `number.set_value` on its configured entities, nothing else (F-ACARD-10).
+  No connection of the cards' own besides map tiles.
 - **Never weaken a gate**: no skipped test without an issue, no `@ts-ignore` without a
   one-line justification.
 

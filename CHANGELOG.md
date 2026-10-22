@@ -6,6 +6,11 @@ versioning: SemVer.
 ## [Unreleased]
 
 ### Added
+- `custom:vigie-anchor-card`, in the same file (ovander/ha-vigie#76): the anchor watch in
+  the cockpit. Status in large type, distance against the radius with a gauge, bearing,
+  largest distance and time at anchor, a small map with the swing circle and your boat,
+  and three buttons: drop the anchor here, raise it (after a confirmation), radius − / +.
+  No sound: the alert is Vigie's phone notification. Swing track and visual editor next.
 - Your boat's position (degrees and minutes), SOG, COG and heading in a line under the
   map and in details when you tap the boat, with whether the position is current or since
   when it is lost; the boat stays drawn, faded, at its last position (ovander/ha-vigie#77).

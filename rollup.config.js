@@ -29,9 +29,10 @@ const leafletEsm = {
   },
 };
 
-// One self-contained file, as HACS installs it (SPEC HA-SAIL-SPEC-001 §9.7, OD-29)
+// One self-contained file with both cards, as HACS installs it (SPEC HA-SAIL-SPEC-001 §9.7,
+// §9.8; OD-29, OD-34)
 export default {
-  input: "src/vigie-traffic-card.ts",
+  input: "src/index.ts",
   output: { file: "dist/vigie-traffic-card.js", format: "es", sourcemap: false },
   plugins: [
     raw,

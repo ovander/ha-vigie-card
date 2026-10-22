@@ -32,6 +32,18 @@ const ICON = 22;
 // policy). Send the page's origin only, never its path.
 const TILE_REFERRER_POLICY = "strict-origin-when-cross-origin";
 
+/** The base map and the optional overlay, as configured; shared by both cards. */
+export function addTiles(map: L.Map, tiles: string, overlay?: string): void {
+  L.tileLayer(tiles, {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap contributors",
+    referrerPolicy: TILE_REFERRER_POLICY,
+  }).addTo(map);
+  if (overlay) {
+    L.tileLayer(overlay, { maxZoom: 19, referrerPolicy: TILE_REFERRER_POLICY }).addTo(map);
+  }
+}
+
 function svg(body: string, rotation: number | null): string {
   const turn = rotation === null ? "" : ` style="transform: rotate(${rotation}deg)"`;
   return `<svg viewBox="-11 -11 22 22" width="${ICON}" height="${ICON}"${turn}>${body}</svg>`;
@@ -55,7 +67,7 @@ function targetIcon(row: TargetRow): L.DivIcon {
   });
 }
 
-function ownIcon(own: OwnBoat, lost = false): L.DivIcon {
+export function ownIcon(own: OwnBoat, lost = false): L.DivIcon {
   const symbol = symbolFor(own);
   const body =
     symbol.shape === "triangle"
@@ -69,7 +81,7 @@ function ownIcon(own: OwnBoat, lost = false): L.DivIcon {
   });
 }
 
-function anchorIcon(alarm: boolean): L.DivIcon {
+export function anchorIcon(alarm: boolean): L.DivIcon {
   const color = alarm ? COLORS.anchorAlarm : COLORS.anchor;
   const body =
     `<g fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round">` +
@@ -80,6 +92,27 @@ function anchorIcon(alarm: boolean): L.DivIcon {
     iconSize: [ICON, ICON],
     iconAnchor: [ICON / 2, ICON / 2],
   });
+}
+
+/** The own boat's details: position, SOG, COG, heading, position state; textContent only. */
+export function ownDetails(lang: string | undefined, own: OwnBoat, state: PositionState): HTMLElement {
+  const box = document.createElement("div");
+  box.className = "vigie-details vigie-details-own";
+  const title = document.createElement("strong");
+  title.textContent = localize(lang, "own_boat");
+  box.appendChild(title);
+  const table = document.createElement("table");
+  for (const [label, value] of ownLines(lang, own)) {
+    const tr = table.insertRow();
+    tr.insertCell().textContent = label;
+    tr.insertCell().textContent = value;
+  }
+  box.appendChild(table);
+  const line = document.createElement("div");
+  line.className = "vigie-details-position";
+  line.textContent = positionStateText(lang, state);
+  box.appendChild(line);
+  return box;
 }
 
 export class TrafficMap {
@@ -104,16 +137,7 @@ export class TrafficMap {
     // No fade: the layers are redrawn at every update, and fading labels would flicker
     // (closed tooltips otherwise linger 200 ms next to their replacements)
     this.map = L.map(container, { zoomControl: true, attributionControl: true, fadeAnimation: false });
-    L.tileLayer(config.tiles, {
-      maxZoom: 19,
-      attribution: "© OpenStreetMap contributors",
-      referrerPolicy: TILE_REFERRER_POLICY,
-    }).addTo(this.map);
-    if (config.overlay) {
-      L.tileLayer(config.overlay, { maxZoom: 19, referrerPolicy: TILE_REFERRER_POLICY }).addTo(
-        this.map,
-      );
-    }
+    addTiles(this.map, config.tiles, config.overlay);
     for (const layer of [this.rings, this.anchor, this.targets, this.own]) layer.addTo(this.map);
     this.map.setView([0, 0], 2);
     this.map.on("dragstart", () => this.setFollow(false));
@@ -218,26 +242,8 @@ export class TrafficMap {
     this.redrawing = false;
   }
 
-  /** The own boat's details: position, SOG, COG, heading, position state; textContent only. */
   ownDetails(own: OwnBoat): HTMLElement {
-    const lang = this.language();
-    const box = document.createElement("div");
-    box.className = "vigie-details vigie-details-own";
-    const title = document.createElement("strong");
-    title.textContent = localize(lang, "own_boat");
-    box.appendChild(title);
-    const table = document.createElement("table");
-    for (const [label, value] of ownLines(lang, own)) {
-      const tr = table.insertRow();
-      tr.insertCell().textContent = label;
-      tr.insertCell().textContent = value;
-    }
-    box.appendChild(table);
-    const state = document.createElement("div");
-    state.className = "vigie-details-position";
-    state.textContent = positionStateText(lang, this.view.ownState ?? { current: true, since: null });
-    box.appendChild(state);
-    return box;
+    return ownDetails(this.language(), own, this.view.ownState ?? { current: true, since: null });
   }
 
   private drawRings(): void {
