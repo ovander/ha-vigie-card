@@ -5,8 +5,10 @@ AIS traffic map for Home Assistant, companion of the
 boat on one map, threats highlighted with their closest point of approach, range rings and
 the anchor watch.
 
-> **Status: beta (P6).** Map and visual editor work, checked in Home Assistant 2026.2.3
-> with Vigie's bench scenarios; the on-board check is still to do.
+> **Status: beta (P6, P7).** The traffic map and its visual editor work, checked in Home
+> Assistant 2026.2.3 with Vigie's bench scenarios and with map tiles in the owner's lab;
+> the anchor card works, configured in YAML (swing track and editor next). The on-board
+> checks are still to do.
 
 ## What it shows
 
