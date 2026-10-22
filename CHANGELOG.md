@@ -5,6 +5,12 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+### Fixed
+- OpenStreetMap tiles were all replaced by a "403 — Access blocked" image in Home Assistant
+  (ovander/ha-vigie#71): Home Assistant's page sends no `Referer` to other sites, and
+  OpenStreetMap's tile servers refuse requests without one. The base map and the overlay
+  now send the page's origin (never its path) with their tile requests.
+
 ## [0.1.0-beta.1] - 2026-10-22
 
 First beta of the Vigie traffic card (Vigie phase P6): every AIS target around your boat on

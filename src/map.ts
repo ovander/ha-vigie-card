@@ -23,6 +23,11 @@ export interface MapView {
 
 const ICON = 22;
 
+// Home Assistant's page sets the referrer policy to same-origin, so tile requests would
+// leave without a Referer and OpenStreetMap's tile servers refuse those (tile usage
+// policy). Send the page's origin only, never its path.
+const TILE_REFERRER_POLICY = "strict-origin-when-cross-origin";
+
 function svg(body: string, rotation: number | null): string {
   const turn = rotation === null ? "" : ` style="transform: rotate(${rotation}deg)"`;
   return `<svg viewBox="-11 -11 22 22" width="${ICON}" height="${ICON}"${turn}>${body}</svg>`;
@@ -97,8 +102,13 @@ export class TrafficMap {
     L.tileLayer(config.tiles, {
       maxZoom: 19,
       attribution: "© OpenStreetMap contributors",
+      referrerPolicy: TILE_REFERRER_POLICY,
     }).addTo(this.map);
-    if (config.overlay) L.tileLayer(config.overlay, { maxZoom: 19 }).addTo(this.map);
+    if (config.overlay) {
+      L.tileLayer(config.overlay, { maxZoom: 19, referrerPolicy: TILE_REFERRER_POLICY }).addTo(
+        this.map,
+      );
+    }
     for (const layer of [this.rings, this.anchor, this.targets, this.own]) layer.addTo(this.map);
     this.map.setView([0, 0], 2);
     this.map.on("dragstart", () => this.setFollow(false));
