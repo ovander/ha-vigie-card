@@ -5,8 +5,8 @@ AIS traffic map for Home Assistant, companion of the
 boat on one map, threats highlighted with their closest point of approach, range rings and
 the anchor watch.
 
-> **Status: in development (P6).** The map works (WP22); the visual editor and the bench
-> check on a real Home Assistant come next (WP23).
+> **Status: beta (P6).** Map and visual editor work, checked in Home Assistant 2026.2.3
+> with Vigie's bench scenarios; the on-board check is still to do.
 
 ## What it shows
 
@@ -45,6 +45,9 @@ lookout and use your chartplotter or charting software to navigate.
 3. Reload the browser (Cmd/Ctrl+Shift+R).
 
 ## Configuration
+
+Add the card from the dashboard editor (*Vigie traffic map*): the visual editor picks your
+boat's entities. Or in YAML:
 
 ```yaml
 type: custom:vigie-traffic-card

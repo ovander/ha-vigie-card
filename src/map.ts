@@ -11,7 +11,7 @@ import * as L from "leaflet";
 
 import type { VigieTrafficCardConfig } from "./config";
 import { cpaPoint, type LatLon, METRES_PER_NM, vectorEnd } from "./geo";
-import { localize, shipType } from "./i18n";
+import { formatNumber, localize, shipType } from "./i18n";
 import type { Anchor, OwnBoat, TargetRow } from "./model";
 import { COLORS, hasVector, labelFor, showLabel, styleFor, symbolFor } from "./style";
 
@@ -73,8 +73,6 @@ function anchorIcon(alarm: boolean): L.DivIcon {
   });
 }
 
-const fixed = (v: number | null, digits: number) => (v === null ? null : v.toFixed(digits));
-
 export class TrafficMap {
   readonly map: L.Map;
   private readonly own = L.layerGroup();
@@ -93,7 +91,9 @@ export class TrafficMap {
     private readonly language: () => string | undefined,
     private readonly onFollowChange: (follow: boolean) => void = () => {},
   ) {
-    this.map = L.map(container, { zoomControl: true, attributionControl: true });
+    // No fade: the layers are redrawn at every update, and fading labels would flicker
+    // (closed tooltips otherwise linger 200 ms next to their replacements)
+    this.map = L.map(container, { zoomControl: true, attributionControl: true, fadeAnimation: false });
     L.tileLayer(config.tiles, {
       maxZoom: 19,
       attribution: "© OpenStreetMap contributors",
@@ -108,7 +108,9 @@ export class TrafficMap {
       if (mmsi !== undefined) this.openMmsi = mmsi;
     });
     this.map.on("popupclose", () => {
-      if (!this.redrawing) this.openMmsi = null;
+      if (this.redrawing) return;
+      this.openMmsi = null;
+      if (this.followOwn) this.center();
     });
   }
 
@@ -135,14 +137,22 @@ export class TrafficMap {
 
   invalidateSize(): void {
     this.map.invalidateSize({ animate: false });
-    if (this.followOwn) this.center();
+    if (!this.fitted) this.fit();
+    else if (this.followOwn) this.center();
   }
 
   remove(): void {
     this.map.remove();
   }
 
+  /**
+   * The first view: the outer range ring around the own boat, else every target. Waits
+   * until the map has a size: Home Assistant lays a card out after its first states, and
+   * a fit on a 0 px map gives the widest zoom (found in the E-08 pre-run).
+   */
   private fit(): void {
+    const size = this.map.getSize();
+    if (size.x === 0 || size.y === 0) return;
     const { own, targets } = this.view;
     if (own) {
       const radius = Math.max(...this.config.rings_nm, 1) * METRES_PER_NM;
@@ -158,7 +168,9 @@ export class TrafficMap {
     }
   }
 
+  /** Follow the own boat, except while a details popup is open (it would be pushed off view). */
   private center(): void {
+    if (this.openMmsi !== null) return;
     const own = this.view.own;
     if (own) this.map.panTo([own.lat, own.lon], { animate: false });
   }
@@ -261,8 +273,8 @@ export class TrafficMap {
           row.threat && row.cpa_nm !== null && row.tcpa_min !== null
             ? localize(lang, "threat_label", {
                 name: labelFor(row),
-                cpa: row.cpa_nm.toFixed(2),
-                tcpa: row.tcpa_min.toFixed(1),
+                cpa: formatNumber(lang, row.cpa_nm, 2),
+                tcpa: formatNumber(lang, row.tcpa_min, 1),
               })
             : labelFor(row);
         marker.bindTooltip(label, {
@@ -286,6 +298,8 @@ export class TrafficMap {
   details(row: TargetRow): HTMLElement {
     const lang = this.language();
     const t = (key: Parameters<typeof localize>[1]) => localize(lang, key);
+    const fixed = (v: number | null, digits: number) =>
+      v === null ? null : formatNumber(lang, v, digits);
     const box = document.createElement("div");
     box.className = "vigie-details";
     const title = document.createElement("strong");
@@ -295,7 +309,7 @@ export class TrafficMap {
       [t("mmsi"), String(row.mmsi)],
       [t("class"), row.class],
       [t("ship_type"), row.ship_type === null ? null : shipType(lang, row.ship_type)],
-      [t("length"), row.length_m === null ? null : `${row.length_m} ${t("unit_m")}`],
+      [t("length"), row.length_m === null ? null : `${fixed(row.length_m, 0)} ${t("unit_m")}`],
       [t("sog"), fixed(row.sog, 1) && `${fixed(row.sog, 1)} ${t("unit_kn")}`],
       [t("cog"), fixed(row.cog, 0) && `${fixed(row.cog, 0)}°`],
       [t("heading"), row.heading === null ? null : `${row.heading}°`],

@@ -11,6 +11,7 @@ import leafletCss from "leaflet/dist/leaflet.css?raw";
 import { css, html, LitElement, nothing, type PropertyValues, unsafeCSS } from "lit";
 
 import { type VigieTrafficCardConfig, validateConfig } from "./config";
+import { EDITOR_TAG } from "./editor";
 import { localize } from "./i18n";
 import { type Anchor, anchorEntities, anchorOf, type HassState, ownBoat, targetRows } from "./model";
 import { type MapView, TrafficMap } from "./map";
@@ -54,6 +55,11 @@ export class VigieTrafficCard extends LitElement {
 
   getCardSize(): number {
     return 8;
+  }
+
+  /** The visual editor (F-CARD-08). */
+  static getConfigElement(): HTMLElement {
+    return document.createElement(EDITOR_TAG);
   }
 
   /** Configuration proposed when the card is added from the card picker. */
@@ -265,6 +271,7 @@ if (!registry.customCards.some((c) => c.type === CARD_TAG)) {
     type: CARD_TAG,
     name: "Vigie traffic map",
     description: "AIS targets, threats and the anchor around your boat (Vigie integration).",
+    preview: true,
     documentationURL: "https://github.com/ovander/ha-vigie-card",
   });
 }
