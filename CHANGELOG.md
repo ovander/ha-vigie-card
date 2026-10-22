@@ -5,6 +5,15 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+### Fixed
+- The released file carries its version again: since both cards are bundled together
+  (0.2.0-beta.1), the stamped version was dropped from the file as unused. It is now shown
+  once in the browser's console (`VIGIE-CARD <version>`), and the release checks it.
+
+### Changed
+- HACS name *Vigie cards*, README for both cards; same repository and file name, nothing to
+  change in an existing installation.
+
 ## [0.2.0-beta.1] - 2026-10-22
 
 Adds the anchor card for the cockpit (Vigie phase P7) and your boat's position, speed and

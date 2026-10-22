@@ -10,8 +10,12 @@ const anchor = JSON.parse(await readFile("test/fixtures/anchor-drag.json", "utf8
 const browser = await chromium.launch();
 const page = await browser.newPage();
 const errors = [];
+const infos = [];
 page.on("pageerror", (e) => errors.push(e.message));
-page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+page.on("console", (m) => {
+  if (m.type() === "error") errors.push(m.text());
+  if (m.type() === "info") infos.push(m.text());
+});
 await page.setContent("<!doctype html><html><body></body></html>");
 await page.addScriptTag({ path: "dist/vigie-traffic-card.js", type: "module" });
 const result = await page.evaluate(async ([s, a]) => {
@@ -55,7 +59,11 @@ const result = await page.evaluate(async ([s, a]) => {
   };
 }, [states, anchor]);
 await browser.close();
-const expected = { targets: 4, own: 1, rings: 3, anchor: 1, leafletCss: "absolute", anchorCard: [1, "Watching"] };
+// The version the file announces once loaded: the release stamps it (EXPECTED_VERSION in the
+// release workflow), a local or CI build carries 0.0.0-dev
+result.version = infos.filter((t) => t.startsWith("VIGIE-CARD ")).join(" | ");
+const version = (process.env.EXPECTED_VERSION ?? "0.0.0-dev").replace(/^v/, "");
+const expected = { targets: 4, own: 1, rings: 3, anchor: 1, leafletCss: "absolute", anchorCard: [1, "Watching"], version: `VIGIE-CARD ${version}` };
 const ok = JSON.stringify(result) === JSON.stringify(expected) && errors.length === 0;
 console.log(ok ? "smoke: ok" : "smoke: FAILED", JSON.stringify(result), errors);
 process.exit(ok ? 0 : 1);
