@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      # HACS installs dist/vigie-traffic-card.js from the repository until a release
+      # carries it: the committed file must be the build of these sources
+      - name: dist is up to date
+        run: git diff --exit-code -- dist/ || (echo "Run npm run build and commit dist/" && exit 1)
+
+  hacs:
+    name: hacs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: plugin
+          # brands: not used by plugins. images: the README gets a screenshot of the map
+          # with the WP23 bench check (ovander/ha-vigie#64 follow-up); remove it then
+          ignore: brands images

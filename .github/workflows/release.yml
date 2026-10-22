@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Stamp the version
+        run: sed -i "s/^export const VERSION = \".*\";/export const VERSION = \"${GITHUB_REF_NAME#v}\";/" src/vigie-traffic-card.ts
+      - run: npm test
+      - run: npm run build
+      - name: Create GitHub release (HACS installs dist/vigie-traffic-card.js)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRE=""
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then PRE="--prerelease"; fi
+          gh release create "$GITHUB_REF_NAME" dist/vigie-traffic-card.js \
+            --title "$GITHUB_REF_NAME" --generate-notes $PRE
