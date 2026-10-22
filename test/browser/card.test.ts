@@ -172,13 +172,15 @@ describe("F-CARD", () => {
   it("F-CARD-09 French", async () => {
     const card = await mount(clone(namedTraffic), CONFIG, "fr");
     expect(text(card)).toContain("4 cibles AIS");
-    expect(all(card, ".vigie-label-threat")[0].textContent).toContain("dans 14.7 min");
+    // Numbers in the user's locale, as Home Assistant shows them (E-08 pre-run)
+    expect(all(card, ".vigie-label-threat")[0].textContent).toBe("CARGO ONE : CPA 0,45 NM dans 14,7 min");
     all(card, ".vigie-threat")[0].click();
     await settle(card);
     const content = card.shadowRoot!.querySelector(".vigie-details")!.textContent ?? "";
     expect(content).toContain("Vitesse fond");
     expect(content).toContain("Type de navire");
     expect(content).toContain("Risque de collision");
+    expect(content).toContain("12,0 nd");
   });
 });
 
@@ -208,5 +210,95 @@ describe("follow mode", () => {
     await settle(card);
     expect(card.trafficMap!.follow).toBe(true);
     expect(card.shadowRoot!.querySelector(".recenter")).toBeNull();
+  });
+});
+
+describe("F-CARD-08 visual editor", () => {
+  it("opens with the card's configuration and sends back what the form changes", async () => {
+    const editor = VigieTrafficCard.getConfigElement() as HTMLElement & {
+      setConfig(c: object): void;
+      hass?: Hass;
+      updateComplete: Promise<boolean>;
+    };
+    editor.hass = hass({}, "fr");
+    editor.setConfig({ ...CONFIG, rings_nm: [1, 2] });
+    document.body.appendChild(editor);
+    await editor.updateComplete;
+    const form = editor.shadowRoot!.querySelector("ha-form") as HTMLElement & {
+      data: Record<string, unknown>;
+      schema: unknown[];
+      computeLabel: (i: { name: string }) => string;
+    };
+    expect(form.data.rings_nm).toBe("1, 2");
+    expect(form.data.entity).toBe("sensor.garnet_ais_targets");
+    expect(form.computeLabel({ name: "rings_nm" })).toBe("Cercles de distance (NM)");
+    // ha-form also asks for the layout grid's label (name ""): no crash, no label (E-08 pre-run)
+    expect(() => form.computeLabel({ name: "" })).not.toThrow();
+    expect(form.computeLabel({ name: "" })).toBeUndefined();
+    const changes: Record<string, unknown>[] = [];
+    editor.addEventListener("config-changed", (e) =>
+      changes.push((e as CustomEvent).detail.config),
+    );
+    form.dispatchEvent(
+      new CustomEvent("value-changed", { detail: { value: { ...form.data, rings_nm: "0.5, 3" } } }),
+    );
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ type: CONFIG.type, entity: CONFIG.entity, rings_nm: [0.5, 3] });
+    editor.remove();
+  });
+});
+
+describe("pre-run findings (E-08 in Home Assistant 2026.2.3)", () => {
+  it("fits the view once the card gets its size (Home Assistant lays the card out late)", async () => {
+    const card = document.createElement(CARD_TAG) as VigieTrafficCard;
+    card.style.display = "block";
+    card.style.width = "0px"; // no size yet when the first states arrive
+    card.setConfig(CONFIG);
+    card.hass = hass(clone(multiTarget));
+    document.body.appendChild(card);
+    cards.push(card);
+    await settle(card);
+    card.style.width = "600px";
+    await new Promise((r) => setTimeout(r, 100)); // ResizeObserver
+    await settle(card);
+    // The 2 NM ring fills the view: a harbour-scale zoom, not the whole world
+    expect(card.trafficMap!.map.getZoom()).toBeGreaterThanOrEqual(11);
+  });
+
+  it("an open details popup survives a state update without duplicating the label", async () => {
+    const card = await mount(clone(namedTraffic));
+    all(card, ".vigie-threat")[0].click();
+    await settle(card);
+    const moved = clone(namedTraffic) as States;
+    for (const row of moved["sensor.garnet_ais_targets"]!.attributes.targets as { lat: number }[]) {
+      row.lat += 0.001;
+    }
+    card.hass = hass(moved);
+    await settle(card);
+    expect(card.shadowRoot!.querySelectorAll(".vigie-details")).toHaveLength(1);
+    const cargo = all(card, ".vigie-label").filter((l) => l.textContent?.startsWith("CARGO ONE"));
+    expect(cargo).toHaveLength(1);
+  });
+});
+
+describe("pre-run findings, continued", () => {
+  it("keeps the view still while a details popup is open, follows again when it closes", async () => {
+    const card = await mount(clone(namedTraffic));
+    const map = card.trafficMap!.map;
+    all(card, ".vigie-threat")[0].click();
+    await new Promise((r) => setTimeout(r, 400)); // Leaflet's animated auto-pan to the popup
+    await settle(card);
+    const center = map.getCenter();
+    const moved = clone(namedTraffic) as States;
+    const own = moved["device_tracker.garnet"]!;
+    own.attributes = { ...own.attributes, latitude: (own.attributes.latitude as number) + 0.002 };
+    card.hass = hass(moved);
+    await settle(card);
+    expect(map.getCenter().equals(center)).toBe(true); // the popup stays in view
+    map.closePopup();
+    card.hass = hass(clone(moved));
+    await settle(card);
+    // Centred again, to the pixel (Leaflet snaps the centre to whole pixels)
+    expect(map.getCenter().lat).toBeCloseTo(own.attributes.latitude as number, 3);
   });
 });

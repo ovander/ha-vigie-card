@@ -31,6 +31,20 @@ export const STRINGS = {
     unit_min: "min",
     unit_s: "s ago",
     unit_m: "m",
+    "editor.entity": "AIS targets sensor",
+    "editor.own": "Own boat tracker",
+    "editor.collision_risk": "Collision risk (optional)",
+    "editor.anchor": "Anchor distance (optional)",
+    "editor.title": "Title",
+    "editor.vector_minutes": "Course vectors",
+    "editor.label_zoom": "Names from zoom",
+    "editor.rings_nm": "Range rings (NM)",
+    "editor.rings_nm_help": "Comma-separated, e.g. 0.5, 1, 2; empty for none",
+    "editor.height": "Map height",
+    "editor.tiles": "Map tiles URL",
+    "editor.tiles_help": "With {z}, {x} and {y}; OpenStreetMap by default",
+    "editor.overlay": "Overlay tiles URL (optional)",
+    "editor.overlay_help": "E.g. OpenSeaMap sea marks: https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
     "ship.wing_in_ground": "Wing in ground",
     "ship.fishing": "Fishing",
     "ship.towing": "Towing",
@@ -76,6 +90,20 @@ export const STRINGS = {
     unit_min: "min",
     unit_s: "s",
     unit_m: "m",
+    "editor.entity": "Capteur des cibles AIS",
+    "editor.own": "Suivi du bateau",
+    "editor.collision_risk": "Risque de collision (facultatif)",
+    "editor.anchor": "Distance à l'ancre (facultatif)",
+    "editor.title": "Titre",
+    "editor.vector_minutes": "Vecteurs de route",
+    "editor.label_zoom": "Noms dès le zoom",
+    "editor.rings_nm": "Cercles de distance (NM)",
+    "editor.rings_nm_help": "Séparés par des virgules, par ex. 0.5, 1, 2 ; vide pour aucun",
+    "editor.height": "Hauteur de la carte",
+    "editor.tiles": "URL des tuiles de carte",
+    "editor.tiles_help": "Avec {z}, {x} et {y} ; OpenStreetMap par défaut",
+    "editor.overlay": "URL des tuiles superposées (facultatif)",
+    "editor.overlay_help": "Par ex. balisage OpenSeaMap : https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
     "ship.wing_in_ground": "Navire à effet de sol",
     "ship.fishing": "Pêche",
     "ship.towing": "Remorquage",
@@ -112,7 +140,9 @@ export function localize(
   key: StringKey,
   values: Record<string, string | number> = {},
 ): string {
-  return STRINGS[languageOf(tag)][key].replace(/\{(\w+)\}/g, (match, name: string) =>
+  // An unknown key shows as itself rather than breaking the card
+  const text: string = STRINGS[languageOf(tag)][key] ?? key;
+  return text.replace(/\{(\w+)\}/g, (match, name: string) =>
     name in values ? String(values[name]) : match,
   );
 }
@@ -121,4 +151,19 @@ export function localize(
 export function shipType(tag: string | undefined, category: string): string {
   const key = `ship.${category}`;
   return key in STRINGS.en ? localize(tag, key as StringKey) : category;
+}
+
+/** A number with fixed decimals in the user's locale ("0,45" in French), as Home Assistant shows it. */
+export function formatNumber(tag: string | undefined, value: number, digits: number): string {
+  let locale = tag ?? "en";
+  try {
+    new Intl.NumberFormat(locale);
+  } catch {
+    locale = "en";
+  }
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+    useGrouping: false,
+  }).format(value);
 }
