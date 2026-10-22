@@ -1,6 +1,7 @@
-// F-CARD-01…07, 09 (TEST HA-SAIL-TEST-001 §4.7): the card rendered in headless Chromium
+// F-CARD-01…07, 09, 10 (TEST HA-SAIL-TEST-001 §4.7): the card rendered in headless Chromium
 // with states recorded from Vigie (test/fixtures, written by Vigie's own tests). Tiles are
 // a blank data URL: no network.
+import * as L from "leaflet";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { CARD_TAG, type Hass, type HassState, VigieTrafficCard } from "../../src/vigie-traffic-card";
@@ -300,5 +301,26 @@ describe("pre-run findings, continued", () => {
     await settle(card);
     // Centred again, to the pixel (Leaflet snaps the centre to whole pixels)
     expect(map.getCenter().lat).toBeCloseTo(own.attributes.latitude as number, 3);
+  });
+});
+
+describe("F-CARD-10 tile requests", () => {
+  it("F-CARD-10 tiles send the page origin as Referer (base and overlay)", async () => {
+    // Home Assistant's page policy is same-origin: without a policy of their own, tile
+    // requests leave with no Referer and OpenStreetMap refuses them (ovander/ha-vigie#71)
+    const overlay = `${BLANK}#seamark/{z}/{x}/{y}`;
+    const card = await mount(clone(multiTarget), { ...CONFIG, overlay });
+    const layers: L.TileLayer[] = [];
+    card.trafficMap!.map.eachLayer((layer) => {
+      if (layer instanceof L.TileLayer) layers.push(layer);
+    });
+    expect(layers).toHaveLength(2);
+    for (const layer of layers) {
+      const tiles = [...layer.getContainer()!.querySelectorAll("img.leaflet-tile")];
+      expect(tiles.length).toBeGreaterThan(0);
+      for (const tile of tiles) {
+        expect(tile.getAttribute("referrerpolicy")).toBe("strict-origin-when-cross-origin");
+      }
+    }
   });
 });
