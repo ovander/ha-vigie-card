@@ -22,7 +22,9 @@ in the same work package.
 - **Not a navigation display.** No feature that suggests otherwise (charts, routes, depths).
 - **Read only, with one exception (SPEC OD-35).** The traffic card calls no service. The
   anchor card may call exactly `switch.turn_on`, `switch.turn_off` (after a confirmation in
-  the card) and `number.set_value` on its configured entities, nothing else (F-ACARD-10).
+  the card), `number.set_value` on its configured entities, and `vigie.drop_anchor` with
+  `keep_since: true` for its boat's entry to recenter the circle (after a confirmation,
+  OD-39), nothing else (F-ACARD-10).
   The anchor card also reads the own tracker's history (`history/history_during_period`,
   read only, OD-36). No connection of the cards' own besides map tiles.
 - **Never weaken a gate**: no skipped test without an issue, no `@ts-ignore` without a

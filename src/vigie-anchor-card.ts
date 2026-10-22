@@ -12,6 +12,7 @@ import leafletCss from "leaflet/dist/leaflet.css?raw";
 import { css, html, LitElement, nothing, type PropertyValues, unsafeCSS } from "lit";
 
 import { type VigieAnchorCardConfig, validateAnchorConfig } from "./anchor-config";
+import { fitAnchor, metresBetween, MIN_MINUTES } from "./anchor-fit";
 import { AnchorMap, type AnchorMapView } from "./anchor-map";
 import {
   type AnchorReading,
@@ -40,19 +41,30 @@ export interface AnchorHass {
   callService(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
   /** Home Assistant's WebSocket call; the card only reads the own tracker's history (OD-36). */
   callWS?<T>(message: Record<string, unknown>): Promise<T>;
+  /** Registries: the switch's device gives Vigie's config entry, for recentering (OD-39). */
+  entities?: Record<string, { device_id?: string | null } | undefined>;
+  devices?: Record<string, { config_entries?: string[]; primary_config_entry?: string | null } | undefined>;
 }
+
+/** Recentering the circle (OD-39): a failed fit, picking a point, or confirming a proposal. */
+type Recenter =
+  | { step: "message"; text: string }
+  | { step: "pick" }
+  | { step: "confirm"; lat: number; lon: number };
 
 export class VigieAnchorCard extends LitElement {
   static override properties = {
     hass: { attribute: false },
     _config: { state: true },
     _confirming: { state: true },
+    _recenter: { state: true },
     _error: { state: true },
   };
 
   hass?: AnchorHass;
   private _config?: VigieAnchorCardConfig;
   private _confirming = false;
+  private _recenter: Recenter | null = null;
   private _error: string | null = null;
   private _lastOwn: OwnBoat | null = null;
   /** The swing track, for the drop it was loaded for (its `armed_at`). */
@@ -114,11 +126,16 @@ export class VigieAnchorCard extends LitElement {
     super.willUpdate(changed);
     const own = this._config && this.hass ? ownBoat(this.hass.states[this._config.own]) : null;
     if (own) this._lastOwn = own;
-    if (changed.has("hass") && this._reading().status === "off") this._confirming = false;
+    if (changed.has("hass")) {
+      const status = this._reading().status;
+      if (status === "off") this._confirming = false;
+      // An alarm, or the watch turned off, ends a recentering in progress (OD-39)
+      if (status === "off" || status === "dragging" || status === "position_lost") this._endRecenter();
+    }
   }
 
   /** One of the three calls of SPEC §9.8; a refusal is shown, nothing else changes. */
-  private async _call(domain: "switch" | "number", service: string, data: Record<string, unknown>) {
+  private async _call(domain: "switch" | "number" | "vigie", service: string, data: Record<string, unknown>) {
     this._error = null;
     try {
       await this.hass!.callService(domain, service, data);
@@ -137,6 +154,59 @@ export class VigieAnchorCard extends LitElement {
   private _raise(): void {
     this._confirming = false;
     void this._call("switch", "turn_off", { entity_id: this._config!.switch });
+  }
+
+  /** Vigie's config entry for this boat, from the switch's device; null when not found. */
+  private _entryId(): string | null {
+    const device = this.hass?.entities?.[this._config!.switch]?.device_id;
+    const entry = device ? this.hass?.devices?.[device] : undefined;
+    return entry?.primary_config_entry ?? entry?.config_entries?.[0] ?? null;
+  }
+
+  /** Option A: the centre of the swing, else why not and the offer to place it by hand. */
+  private _startRecenter(): void {
+    const r = this._reading();
+    const t = (key: StringKey, values?: Record<string, string | number>) => localize(this._language, key, values);
+    const radius = r.anchor?.radius_m ?? r.radius.value ?? 0;
+    const fit = r.armedAt ? fitAnchor(this._track, r.armedAt, new Date(), radius) : null;
+    if (fit?.ok) {
+      this._recenter = { step: "confirm", lat: fit.lat, lon: fit.lon };
+    } else {
+      const reason = fit?.reason ?? "too_soon";
+      const text =
+        reason === "too_soon"
+          ? t("anchor_card.fit_too_soon", { minutes: MIN_MINUTES })
+          : reason === "implausible"
+            ? t("anchor_card.fit_implausible")
+            : t("anchor_card.fit_short");
+      this._recenter = { step: "message", text };
+    }
+    this._map?.update(this._view());
+  }
+
+  /** Option B: the next tap on the map is the anchor. */
+  private _startPick(): void {
+    this._recenter = { step: "pick" };
+    this._map?.setPicking((lat, lon) => {
+      this._map?.setPicking(null);
+      this._recenter = { step: "confirm", lat, lon };
+      this._map?.update(this._view());
+    });
+  }
+
+  private _endRecenter(): void {
+    if (!this._recenter) return;
+    this._recenter = null;
+    this._map?.setPicking(null);
+    if (this._map && this.hass) this._map.update(this._view());
+  }
+
+  /** The fourth call (OD-39): Vigie moves the circle and keeps the time at anchor. */
+  private _applyRecenter(lat: number, lon: number): void {
+    const entry = this._entryId();
+    this._endRecenter();
+    if (!entry) return;
+    void this._call("vigie", "drop_anchor", { config_entry_id: entry, latitude: lat, longitude: lon, keep_since: true });
   }
 
   private _setRadius(value: number): void {
@@ -204,12 +274,19 @@ export class VigieAnchorCard extends LitElement {
                 <button class="radius-up" aria-label=${t("anchor_card.radius_up")} title=${t("anchor_card.radius_up")}
                   ?disabled=${up === null} @click=${() => up !== null && this._setRadius(up)}>+</button>
               </div>
-              <button class="raise" @click=${() => (this._confirming = true)}>${t("anchor_card.raise")}</button>`
+              <button class="raise" @click=${() => (this._confirming = true)}>${t("anchor_card.raise")}</button>
+              <div class="recenter-control">
+                <button class="recenter secondary" ?disabled=${alarm || this._entryId() === null}
+                  @click=${() => this._startRecenter()}>${t("anchor_card.recenter")}</button>
+                <button class="move secondary" ?disabled=${alarm || this._entryId() === null}
+                  @click=${() => this._startPick()}>${t("anchor_card.move")}</button>
+              </div>`
           : html`<button class="drop" ?disabled=${own === null} @click=${() => own !== null && this._drop()}>
                 ${t("anchor_card.drop")}
               </button>
               ${own === null ? html`<span class="hint">${t("anchor_card.no_position")}</span>` : nothing}`}
       </div>
+      ${this._recenterBox(armed)}
       ${this._confirming && armed
         ? html`<div class="confirm" role="alertdialog">
             <span>${t("anchor_card.raise_confirm", { boat: this._boatName() })}</span>
@@ -263,10 +340,36 @@ export class VigieAnchorCard extends LitElement {
     }
   }
 
+  private _recenterBox(armed: boolean) {
+    const rc = this._recenter;
+    if (!rc || !armed) return nothing;
+    const t = (key: StringKey, values?: Record<string, string | number>) => localize(this._language, key, values);
+    const cancel = html`<button class="cancel" @click=${() => this._endRecenter()}>${t("anchor_card.cancel")}</button>`;
+    if (rc.step === "message") {
+      return html`<div class="recenter-message confirm">
+        <span>${rc.text}</span>${cancel}
+        <button class="by-hand" @click=${() => this._startPick()}>${t("anchor_card.by_hand")}</button>
+      </div>`;
+    }
+    if (rc.step === "pick") {
+      return html`<div class="move-hint confirm"><span>${t("anchor_card.move_hint")}</span>${cancel}</div>`;
+    }
+    const anchor = this._reading().anchor;
+    const distance = anchor ? Math.round(metresBetween(anchor.lat, anchor.lon, rc.lat, rc.lon)) : 0;
+    return html`<div class="recenter-confirm confirm" role="alertdialog">
+      <span>${t("anchor_card.recenter_confirm", { boat: this._boatName(), distance })}</span>
+      ${cancel}
+      <button class="apply" @click=${() => this._applyRecenter(rc.lat, rc.lon)}>${t("anchor_card.recenter_apply")}</button>
+    </div>`;
+  }
+
   private _view(): AnchorMapView {
     const tracker = this.hass!.states[this._config!.own];
+    const rc = this._recenter;
+    const anchor = this._reading().anchor;
     return {
-      anchor: this._reading().anchor,
+      preview: rc?.step === "confirm" && anchor ? { lat: rc.lat, lon: rc.lon, radius_m: anchor.radius_m } : null,
+      anchor,
       track: this._track.map((p) => [p.lat, p.lon]),
       own: ownBoat(tracker),
       lastOwn: this._lastOwn,
@@ -406,6 +509,15 @@ export class VigieAnchorCard extends LitElement {
       button:disabled {
         opacity: 0.4;
         cursor: default;
+      }
+      .recenter-control {
+        display: flex;
+        gap: 10px;
+        flex-basis: 100%;
+      }
+      button.secondary {
+        background: var(--secondary-background-color, #e0e0e0);
+        color: var(--primary-text-color, #212121);
       }
       .raise,
       .stop {

@@ -1,6 +1,7 @@
-// F-ACARD-01…10 (TEST HA-SAIL-TEST-001 §4.8): the anchor card in headless Chromium,
+// F-ACARD-01…13 (TEST HA-SAIL-TEST-001 §4.8): the anchor card in headless Chromium,
 // with states recorded from Vigie on the `anchor-drag` preset (test/fixtures). The fake
 // `hass` records every service call. Tiles are a blank data URL: no network.
+import * as L from "leaflet";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { ANCHOR_CARD_TAG, type AnchorHass, VigieAnchorCard } from "../../src/vigie-anchor-card";
@@ -45,6 +46,9 @@ function hass(states: States, language = "en", refuse?: string) {
   const calls: Call[] = [];
   const messages: Record<string, unknown>[] = [];
   const h: AnchorHass = {
+    // Home Assistant's registries: the switch's device belongs to Vigie's entry for Garnet
+    entities: { "switch.garnet_anchor_watch": { device_id: "dev-garnet" } },
+    devices: { "dev-garnet": { config_entries: ["entry-garnet"], primary_config_entry: "entry-garnet" } },
     callWS: async <T>(message: Record<string, unknown>) => {
       messages.push(message);
       allMessages.push(message);
@@ -271,6 +275,86 @@ describe("F-ACARD", () => {
   });
 });
 
+/** Swinging states with the anchor point written 20 m north of where the swing says it is. */
+function offset(minutes = 15): States {
+  const states = at("swinging", minutes);
+  const north = 20 / 1852 / 60;
+  for (const id of ["switch.garnet_anchor_watch", "sensor.garnet_anchor_distance"]) {
+    const a = states[id]!.attributes;
+    if ("anchor_latitude" in a) a.anchor_latitude = (a.anchor_latitude as number) + north;
+    if ("latitude" in a) a.latitude = (a.latitude as number) + north;
+  }
+  return states;
+}
+
+describe("F-ACARD-12 recenter on the swing (OD-39 A)", () => {
+  it("F-ACARD-12 proposes the swing's centre, previews it, recenters only after a confirmation", async () => {
+    const { card, calls } = await mount(offset());
+    one(card, ".recenter")!.click();
+    await settle(card);
+    const question = text(one(card, ".recenter-confirm"));
+    expect(question).toMatch(/^Recenter garnet's circle here\? \((1[5-9]|2[0-5]) m from the current one\)/); // ~20 m: the offset
+    expect(all(card, "path.vigie-anchor-preview")).toHaveLength(1);
+    expect(calls).toHaveLength(0);
+    one(card, ".recenter-confirm .cancel")!.click();
+    await settle(card);
+    expect(all(card, "path.vigie-anchor-preview")).toHaveLength(0);
+    expect(calls).toHaveLength(0);
+
+    one(card, ".recenter")!.click();
+    await settle(card);
+    one(card, ".recenter-confirm .apply")!.click();
+    await settle(card);
+    expect(calls).toHaveLength(1);
+    const { domain, service, data } = calls[0];
+    expect([domain, service]).toEqual(["vigie", "drop_anchor"]);
+    expect(data).toMatchObject({ config_entry_id: "entry-garnet", keep_since: true });
+    // The recorded swing is around 43.5, 7.25 (± 8 m of GPS noise): within 5 m
+    const dn = ((data!.latitude as number) - 43.5) * 60 * 1852;
+    const de = ((data!.longitude as number) - 7.25) * 60 * 1852 * Math.cos((43.5 * Math.PI) / 180);
+    expect(Math.hypot(dn, de)).toBeLessThan(5);
+    expect(one(card, ".recenter-confirm")).toBeNull();
+  });
+
+  it("F-ACARD-12 too soon: says so and offers to place the anchor by hand", async () => {
+    const { card, calls } = await mount(offset(5));
+    one(card, ".recenter")!.click();
+    await settle(card);
+    expect(text(one(card, ".recenter-message"))).toContain("Too soon");
+    one(card, ".recenter-message .by-hand")!.click();
+    await settle(card);
+    expect(text(one(card, ".move-hint"))).toContain("Tap the map where the anchor is");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("F-ACARD-12 disabled during an alarm", async () => {
+    const { card } = await mount(at("dragging"));
+    expect((one(card, ".recenter") as HTMLButtonElement).disabled).toBe(true);
+    expect((one(card, ".move") as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("F-ACARD-13 move the anchor by hand (OD-39 B)", () => {
+  it("F-ACARD-13 tap the map, preview, confirm", async () => {
+    const { card, calls } = await mount(offset());
+    one(card, ".move")!.click();
+    await settle(card);
+    expect(text(one(card, ".move-hint"))).toContain("Tap the map where the anchor is");
+    card.anchorMap!.map.fire("click", { latlng: L.latLng(43.50001, 7.25002) });
+    await settle(card);
+    expect(all(card, "path.vigie-anchor-preview")).toHaveLength(1);
+    one(card, ".recenter-confirm .apply")!.click();
+    await settle(card);
+    expect(calls).toEqual([
+      {
+        domain: "vigie",
+        service: "drop_anchor",
+        data: { config_entry_id: "entry-garnet", latitude: 43.50001, longitude: 7.25002, keep_since: true },
+      },
+    ]);
+  });
+});
+
 describe("F-ACARD-11 visual editor", () => {
   it("opens with a one-line configuration and sends back what the form changes", async () => {
     const editor = VigieAnchorCard.getConfigElement() as HTMLElement & {
@@ -300,12 +384,13 @@ describe("F-ACARD-11 visual editor", () => {
 });
 
 describe("F-ACARD-10 calls", () => {
-  it("F-ACARD-10 only the three calls of SPEC §9.8, on the configured entities, and the history request", () => {
+  it("F-ACARD-10 only the four calls of SPEC §9.8, on the configured entities, and the history request", () => {
     // Runs after the tests above (same file, in order): every call they made
     const allowed = new Set([
       "switch.turn_on switch.garnet_anchor_watch",
       "switch.turn_off switch.garnet_anchor_watch",
       "number.set_value number.garnet_anchor_radius",
+      "vigie.drop_anchor entry-garnet", // recentering only (OD-39): keep_since, a point
     ]);
     expect(allCalls.length).toBeGreaterThanOrEqual(4);
     // The only other message: the read-only history request for the own tracker (OD-36)
@@ -315,8 +400,14 @@ describe("F-ACARD-10 calls", () => {
       expect(message.entity_ids).toEqual(["device_tracker.garnet"]);
     }
     for (const call of allCalls) {
-      expect(allowed, JSON.stringify(call)).toContain(`${call.domain}.${call.service} ${call.data?.entity_id}`);
-      expect(Object.keys(call.data ?? {}).every((k) => k === "entity_id" || k === "value")).toBe(true);
+      const target = call.data?.entity_id ?? call.data?.config_entry_id;
+      expect(allowed, JSON.stringify(call)).toContain(`${call.domain}.${call.service} ${target}`);
+      if (call.domain === "vigie") {
+        expect(Object.keys(call.data!).sort()).toEqual(["config_entry_id", "keep_since", "latitude", "longitude"]);
+        expect(call.data!.keep_since).toBe(true);
+      } else {
+        expect(Object.keys(call.data ?? {}).every((k) => k === "entity_id" || k === "value")).toBe(true);
+      }
     }
   });
 });

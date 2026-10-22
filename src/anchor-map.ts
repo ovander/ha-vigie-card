@@ -16,6 +16,8 @@ export interface AnchorMapView {
   anchor: Anchor | null;
   /** The swing track since the drop (OD-36), oldest first. */
   track: [number, number][];
+  /** A proposed new centre for the circle, drawn dashed until confirmed (OD-39). */
+  preview?: { lat: number; lon: number; radius_m: number } | null;
   own: OwnBoat | null;
   lastOwn: OwnBoat | null;
   ownState: PositionState;
@@ -28,6 +30,8 @@ export class AnchorMap {
   readonly map: L.Map;
   private readonly anchorLayer = L.layerGroup();
   private readonly trackLayer = L.layerGroup();
+  private readonly previewLayer = L.layerGroup();
+  private picking: ((lat: number, lon: number) => void) | null = null;
   private readonly ownLayer = L.layerGroup();
   private view: AnchorMapView = { anchor: null, track: [], own: null, lastOwn: null, ownState: { current: true, since: null } };
   /** What the view was last fitted to: refitted only when the anchor or radius changes. */
@@ -45,6 +49,8 @@ export class AnchorMap {
     addTiles(this.map, tiles, overlay);
     this.anchorLayer.addTo(this.map);
     this.trackLayer.addTo(this.map);
+    this.previewLayer.addTo(this.map);
+    this.map.on("click", (e: L.LeafletMouseEvent) => this.picking?.(e.latlng.lat, e.latlng.lng));
     this.ownLayer.addTo(this.map);
     this.map.setView([0, 0], 2);
     this.map.on("popupopen", () => (this.ownOpen = true));
@@ -57,6 +63,7 @@ export class AnchorMap {
     this.view = view;
     this.drawAnchor();
     this.drawTrack();
+    this.drawPreview();
     this.drawOwn();
     this.fit();
   }
@@ -95,6 +102,30 @@ export class AnchorMap {
   /** Points of the swing track drawn, for tests and diagnostics. */
   get trackLength(): number {
     return this.view.track.length;
+  }
+
+  /** While set, a tap on the map gives the point to `pick` (moving the anchor by hand). */
+  setPicking(pick: ((lat: number, lon: number) => void) | null): void {
+    this.picking = pick;
+    this.map.getContainer().style.cursor = pick ? "crosshair" : "";
+  }
+
+  private drawPreview(): void {
+    this.previewLayer.clearLayers();
+    const p = this.view.preview;
+    if (!p) return;
+    this.previewLayer.addLayer(
+      L.circle([p.lat, p.lon], {
+        radius: p.radius_m,
+        color: COLORS.anchor,
+        weight: 2,
+        dashArray: "6 6",
+        fill: false,
+        interactive: false,
+        className: "vigie-anchor-preview",
+      }),
+    );
+    this.previewLayer.addLayer(L.marker([p.lat, p.lon], { icon: anchorIcon(false), interactive: false, opacity: 0.6 }));
   }
 
   private drawTrack(): void {
