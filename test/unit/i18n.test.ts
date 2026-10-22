@@ -1,7 +1,7 @@
 // U-CARD-07: translations (TEST HA-SAIL-TEST-001 §3.8)
 import { describe, expect, it } from "vitest";
 
-import { languageOf, localize, STRINGS } from "../src/i18n";
+import { languageOf, localize, STRINGS } from "../../src/i18n";
 
 describe("U-CARD-07 translations", () => {
   it("has the same keys in every language, none empty", () => {
@@ -26,5 +26,16 @@ describe("U-CARD-07 translations", () => {
     expect(languageOf(undefined)).toBe("en");
     expect(localize("fr", "targets", { count: 4 })).toBe("4 cibles AIS");
     expect(localize("en", "targets", { count: 4 })).toBe("4 AIS targets");
+  });
+});
+
+describe("ship types", () => {
+  it("translates Vigie's 19 categories, and keeps an unknown key", async () => {
+    const { shipType } = await import("../../src/i18n");
+    const categories = Object.keys(STRINGS.en).filter((k) => k.startsWith("ship."));
+    expect(categories).toHaveLength(19);
+    expect(shipType("fr", "sailing")).toBe("Voilier");
+    expect(shipType("en", "cargo")).toBe("Cargo");
+    expect(shipType("fr", "submarine")).toBe("submarine");
   });
 });

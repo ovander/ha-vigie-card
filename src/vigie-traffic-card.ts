@@ -2,23 +2,24 @@
  * `custom:vigie-traffic-card` — AIS traffic map for the Vigie integration
  * (SPEC HA-SAIL-SPEC-001 §9.7, component C-12).
  *
- * WP21: card skeleton (configuration, registration, translations). The map itself
- * (Leaflet, own boat, targets, threats, rings, anchor) comes in WP22.
+ * Draws the own boat, every target of `sensor.<boat>_ais_targets` (the 50 nearest),
+ * threats with their CPA point, range rings and the anchor watch. An aid to awareness,
+ * not a navigation display.
  */
 
-import { css, html, LitElement, nothing } from "lit";
+import leafletCss from "leaflet/dist/leaflet.css?raw";
+import { css, html, LitElement, nothing, type PropertyValues, unsafeCSS } from "lit";
 
 import { type VigieTrafficCardConfig, validateConfig } from "./config";
 import { localize } from "./i18n";
+import { type Anchor, anchorEntities, anchorOf, type HassState, ownBoat, targetRows } from "./model";
+import { type MapView, TrafficMap } from "./map";
 
 export const CARD_TAG = "vigie-traffic-card";
 export const VERSION = "0.0.0-dev";
 
+export type { HassState };
 /** The part of Home Assistant's `hass` object the card reads. */
-export interface HassState {
-  state: string;
-  attributes: Record<string, unknown>;
-}
 export interface Hass {
   states: Record<string, HassState | undefined>;
   locale?: { language?: string };
@@ -29,14 +30,26 @@ export class VigieTrafficCard extends LitElement {
   static override properties = {
     hass: { attribute: false },
     _config: { state: true },
+    _follow: { state: true },
   };
 
   hass?: Hass;
   private _config?: VigieTrafficCardConfig;
+  private _follow = true;
+  private _map?: TrafficMap;
+  private _resize?: ResizeObserver;
+  /** The state objects last drawn: Home Assistant replaces an object when it changes. */
+  private _drawn: unknown[] = [];
 
   /** Called by Home Assistant with the YAML configuration; throws on an invalid one. */
   setConfig(config: unknown): void {
-    this._config = validateConfig(config);
+    const next = validateConfig(config);
+    if (this._map && JSON.stringify(next) !== JSON.stringify(this._config)) {
+      this._map.remove(); // a new configuration builds a new map
+      this._map = undefined;
+      this._drawn = [];
+    }
+    this._config = next;
   }
 
   getCardSize(): number {
@@ -54,8 +67,33 @@ export class VigieTrafficCard extends LitElement {
     };
   }
 
+  /** The Leaflet map, for tests and diagnostics. */
+  get trafficMap(): TrafficMap | undefined {
+    return this._map;
+  }
+
   private get _language(): string | undefined {
     return this.hass?.locale?.language ?? this.hass?.language;
+  }
+
+  private _states(): (HassState | undefined)[] {
+    const c = this._config!;
+    const s = this.hass!.states;
+    const anchor = c.anchor ? anchorEntities(c.anchor) : null;
+    return [
+      s[c.entity],
+      s[c.own],
+      c.collision_risk ? s[c.collision_risk] : undefined,
+      c.anchor ? s[c.anchor] : undefined,
+      anchor ? s[anchor.watch] : undefined,
+      anchor ? s[anchor.alarm] : undefined,
+    ];
+  }
+
+  private _viewOf(states: (HassState | undefined)[]): MapView {
+    const [targets, own, , distance, watch, alarm] = states;
+    const anchor: Anchor | null = this._config!.anchor ? anchorOf(distance, watch, alarm) : null;
+    return { own: ownBoat(own), targets: targetRows(targets), anchor };
   }
 
   protected override render() {
@@ -69,39 +107,143 @@ export class VigieTrafficCard extends LitElement {
         </div>
       </ha-card>`;
     }
-    const own = this.hass.states[this._config.own];
-    const ownKnown = own !== undefined && typeof own.attributes.latitude === "number";
-    return html`<ha-card .header=${this._config.title}>
-      <div class="map" style="height: ${this._config.height}">
-        <div class="count">${localize(lang, "targets", { count: sensor.state })}</div>
-        <div class="message">${localize(lang, "map_coming")}</div>
+    const ownKnown = ownBoat(this.hass.states[this._config.own]) !== null;
+    const risk = this._config.collision_risk
+      ? this.hass.states[this._config.collision_risk]?.state === "on"
+      : false;
+    return html`<ha-card .header=${this._config.title} class=${risk ? "risk" : ""}>
+      <div class="wrapper">
+        <div id="map" style="height: ${this._config.height}"></div>
+        ${this._follow || !ownKnown
+          ? nothing
+          : html`<button class="recenter" title=${localize(lang, "recenter")}
+              aria-label=${localize(lang, "recenter")} @click=${() => this._map?.setFollow(true)}>
+              <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor"
+                d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm8.94 3A8.99 8.99 0 0 0 13 3.06V1h-2v2.06A8.99 8.99 0 0 0 3.06 11H1v2h2.06A8.99 8.99 0 0 0 11 20.94V23h2v-2.06A8.99 8.99 0 0 0 20.94 13H23v-2h-2.06ZM12 19a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg>
+            </button>`}
       </div>
-      ${ownKnown
-        ? nothing
-        : html`<div class="message warning">${localize(lang, "no_own_position")}</div>`}
+      <div class="status">
+        <span class="count">${localize(lang, "targets", { count: sensor.state })}</span>
+        ${ownKnown
+          ? nothing
+          : html`<span class="warning">${localize(lang, "no_own_position")}</span>`}
+      </div>
     </ha-card>`;
   }
 
-  static override styles = css`
-    .map {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      background: var(--secondary-background-color);
+  protected override updated(changed: PropertyValues): void {
+    super.updated(changed);
+    if (!this._config || !this.hass) return;
+    const container = this.renderRoot.querySelector<HTMLElement>("#map");
+    if (!container) return;
+    if (!this._map || this._map.map.getContainer() !== container) {
+      this._map?.remove();
+      this._map = new TrafficMap(
+        container,
+        this._config,
+        () => this._language,
+        (follow) => (this._follow = follow),
+      );
+      this._resize?.disconnect();
+      this._resize = new ResizeObserver(() => this._map?.invalidateSize());
+      this._resize.observe(container);
+      this._drawn = [];
     }
-    .count {
-      font-size: 1.4em;
+    const states = this._states();
+    if (states.length === this._drawn.length && states.every((s, i) => s === this._drawn[i])) return;
+    this._drawn = states;
+    this._map.update(this._viewOf(states));
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._resize?.disconnect();
+    this._resize = undefined;
+  }
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    const container = this.renderRoot?.querySelector?.<HTMLElement>("#map");
+    if (this._map && container) {
+      this._resize = new ResizeObserver(() => this._map?.invalidateSize());
+      this._resize.observe(container);
     }
-    .message {
-      padding: 8px 16px;
-      color: var(--secondary-text-color);
-    }
-    .warning {
-      color: var(--warning-color);
-    }
-  `;
+  }
+
+  static override styles = [
+    unsafeCSS(leafletCss),
+    css`
+      ha-card {
+        overflow: hidden;
+      }
+      ha-card.risk {
+        box-shadow: inset 0 0 0 3px var(--error-color, #d32f2f);
+      }
+      .wrapper {
+        position: relative;
+      }
+      #map {
+        width: 100%;
+        background: var(--secondary-background-color, #e0e0e0);
+        z-index: 0;
+      }
+      .recenter {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        z-index: 1000;
+        width: 34px;
+        height: 34px;
+        border: 2px solid rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        background: #fff;
+        color: #333;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .status {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 6px 16px 10px;
+        color: var(--secondary-text-color);
+      }
+      .message {
+        padding: 16px;
+      }
+      .warning {
+        color: var(--warning-color, #f57c00);
+      }
+      .vigie-target,
+      .vigie-own,
+      .vigie-anchor {
+        background: none;
+        border: none;
+      }
+      .vigie-label {
+        font-size: 11px;
+        padding: 1px 4px;
+      }
+      .vigie-label-threat {
+        color: #b71c1c;
+        font-weight: 600;
+      }
+      .vigie-details table {
+        border-collapse: collapse;
+        margin-top: 4px;
+      }
+      .vigie-details td {
+        padding: 1px 8px 1px 0;
+      }
+      .vigie-details-threat {
+        margin-top: 4px;
+        color: #b71c1c;
+        font-weight: 600;
+      }
+    `,
+  ];
 }
 
 if (!customElements.get(CARD_TAG)) {

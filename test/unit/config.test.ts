@@ -1,7 +1,7 @@
 // U-CARD-06: configuration validation (TEST HA-SAIL-TEST-001 §3.8)
 import { describe, expect, it } from "vitest";
 
-import { ConfigError, DEFAULTS, validateConfig } from "../src/config";
+import { ConfigError, DEFAULTS, validateConfig } from "../../src/config";
 
 const MINIMAL = { entity: "sensor.garnet_ais_targets", own: "device_tracker.garnet" };
 

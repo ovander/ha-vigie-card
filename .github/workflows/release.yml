@@ -17,10 +17,12 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - name: Stamp the version
         run: sed -i "s/^export const VERSION = \".*\";/export const VERSION = \"${GITHUB_REF_NAME#v}\";/" src/vigie-traffic-card.ts
       - run: npm test
       - run: npm run build
+      - run: npm run smoke
       - name: Create GitHub release (HACS installs dist/vigie-traffic-card.js)
         env:
           GH_TOKEN: ${{ github.token }}

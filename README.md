@@ -5,8 +5,26 @@ AIS traffic map for Home Assistant, companion of the
 boat on one map, threats highlighted with their closest point of approach, range rings and
 the anchor watch.
 
-> **Status: skeleton (P6, WP21).** The card installs, validates its configuration and shows
-> the number of targets. The map itself comes in the next version.
+> **Status: in development (P6).** The map works (WP22); the visual editor and the bench
+> check on a real Home Assistant come next (WP23).
+
+## What it shows
+
+- **Your boat**, oriented on its heading (else its course), with a course vector of
+  `vector_minutes`, and range rings.
+- **Every AIS target** Vigie lists (the 50 nearest): a triangle oriented on heading or
+  course, with its vector; a circle when stopped or without a course. Dark for Class A,
+  grey for Class B, faded when the last report is more than 3 minutes old.
+- **Threats** in red, with a dashed line to the point of closest approach and a label
+  `NAME: CPA 0.45 NM in 2.7 min`. The card border turns red while `collision_risk` is on.
+- **The anchor** and its swing circle while the anchor watch is on, red when the alarm is.
+- **Details** when you tap a target: MMSI, class, ship type, length, SOG, COG, heading,
+  distance, CPA, TCPA, age of the last report.
+- The map follows your boat; panning stops following, the ⌖ button resumes it. Names are
+  shown on every target from `label_zoom`, always on threats. English and French.
+
+Positions are those of Vigie's list, refreshed every 5 seconds; the card does not
+extrapolate between refreshes.
 
 ## ⚠️ Safety
 
@@ -48,7 +66,8 @@ Replace `garnet` with your boat's name as it appears in its entity IDs.
 
 ```bash
 npm ci
-npm run check    # typecheck, tests, build → dist/vigie-traffic-card.js
+npx playwright install chromium   # browser tests and smoke test
+npm run check    # typecheck, unit + browser tests, build → dist/vigie-traffic-card.js, smoke
 ```
 
 `dist/vigie-traffic-card.js` is committed (HACS installs it from the repository until a
@@ -60,4 +79,5 @@ in the Vigie repository.
 
 ## License
 
-Apache-2.0. Leaflet (BSD-2-Clause) and Lit (BSD-3-Clause) are bundled in the release file.
+Apache-2.0. Leaflet (BSD-2-Clause) and Lit (BSD-3-Clause) are bundled in the release file
+(about 195 KB, mostly Leaflet).
