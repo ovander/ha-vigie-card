@@ -68,6 +68,43 @@ tiles: https://tile.openstreetmap.org/{z}/{x}/{y}.png
 
 Replace `garnet` with your boat's name as it appears in its entity IDs.
 
+## Anchor card
+
+A second card in the same download, for the anchor watch in the cockpit:
+
+- the watch's state in large type: *Watching*, *Waiting for position*, or in red
+  *Dragging* / *Position lost* with the time it started;
+- the distance to the anchor against the radius (`32 / 50 m`) and a gauge, amber from
+  80 % of the radius, red outside;
+- the bearing to the anchor, the largest distance since the drop and the time at anchor;
+- a small map centred on the anchor, with the swing circle and your boat;
+- your boat's position, SOG, COG and heading, as on the traffic map;
+- three buttons: **Drop anchor here** (at the boat's GPS position, with the current
+  radius), **Raise anchor** (only after a confirmation: one tap never stops the watch), and
+  the radius **−** / **+** by 5 m.
+
+These buttons are the only actions either card takes, through Home Assistant; the traffic
+map never changes anything. To drop the anchor at a position read on the chartplotter,
+use Vigie's `vigie.drop_anchor` action instead.
+
+The card makes **no sound**: browsers block it and screens sleep. What wakes the crew is
+Vigie's anchor alarm automation sending a critical notification to the phone (see Vigie's
+README).
+
+```yaml
+type: custom:vigie-anchor-card
+switch: switch.garnet_anchor_watch      # required; the other entities follow its name
+# distance: sensor.garnet_anchor_distance
+# alarm: binary_sensor.garnet_anchor_alarm
+# radius: number.garnet_anchor_radius
+# own: device_tracker.garnet
+height: 260px
+tiles: https://tile.openstreetmap.org/{z}/{x}/{y}.png
+# overlay: https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png
+```
+
+The swing track and the visual editor for this card come in the next version.
+
 ## Development
 
 ```bash

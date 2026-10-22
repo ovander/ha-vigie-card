@@ -48,7 +48,7 @@ export class ConfigError extends Error {
   }
 }
 
-function entityOf(raw: Record<string, unknown>, field: string, domain: string, required: boolean) {
+export function entityOf(raw: Record<string, unknown>, field: string, domain: string, required: boolean) {
   const value = raw[field];
   if (value === undefined || value === null || value === "") {
     if (required) throw new ConfigError(field, `required (a ${domain} entity ID)`);
@@ -68,7 +68,7 @@ function positiveNumber(raw: Record<string, unknown>, field: string, fallback: n
   return value;
 }
 
-function text(raw: Record<string, unknown>, field: string): string | undefined {
+export function text(raw: Record<string, unknown>, field: string): string | undefined {
   const value = raw[field];
   if (value === undefined || value === null) return undefined;
   if (typeof value !== "string") throw new ConfigError(field, "must be text");
