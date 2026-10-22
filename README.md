@@ -1,16 +1,21 @@
-# Vigie traffic card
+# Vigie cards
 
-AIS traffic map for Home Assistant, companion of the
-[Vigie](https://github.com/ovander/ha-vigie) integration: every AIS target around your
-boat on one map, threats highlighted with their closest point of approach, range rings and
-the anchor watch.
+Two dashboard cards for Home Assistant, companions of the
+[Vigie](https://github.com/ovander/ha-vigie) integration, in one download:
+
+- **Vigie traffic map** (`custom:vigie-traffic-card`): every AIS target around your boat on
+  one map, threats highlighted with their closest point of approach, range rings and the
+  anchor watch;
+- **Vigie anchor watch** (`custom:vigie-anchor-card`): the anchor watch in the cockpit, with
+  the distance against the radius, the alarm, the swing circle and the drop / raise /
+  radius buttons ([Anchor card](#anchor-card)).
 
 > **Status: beta (P6, P7).** The traffic map and its visual editor work, checked in Home
 > Assistant 2026.2.3 with Vigie's bench scenarios and with map tiles in the owner's lab;
 > the anchor card works, configured in YAML (swing track and editor next). The on-board
 > checks are still to do.
 
-## What it shows
+## Traffic map: what it shows
 
 - **Your boat**, oriented on its heading (else its course), with a course vector of
   `vector_minutes`, and range rings. Under the map: its position in degrees and minutes,
@@ -46,10 +51,14 @@ lookout and use your chartplotter or charting software to navigate.
 
 1. HACS → ⋮ → Custom repositories → `https://github.com/ovander/ha-vigie-card`, category
    *Dashboard*.
-2. Download *Vigie traffic card* (turn on beta versions while only pre-releases exist).
+2. Download *Vigie cards* (turn on beta versions while only pre-releases exist). One
+   file holds both cards.
 3. Reload the browser (Cmd/Ctrl+Shift+R).
 
-## Configuration
+The browser's console shows `VIGIE-CARD <version>` once the file is loaded: the version to
+give when asking for help.
+
+## Traffic map: configuration
 
 Add the card from the dashboard editor (*Vigie traffic map*): the visual editor picks your
 boat's entities. Or in YAML:

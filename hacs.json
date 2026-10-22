@@ -1,5 +1,5 @@
 {
-  "name": "Vigie traffic card",
+  "name": "Vigie cards",
   "filename": "vigie-traffic-card.js",
   "render_readme": true,
   "homeassistant": "2026.2.0"
