@@ -22,6 +22,10 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # HACS installs dist/vigie-traffic-card.js from the repository until a release
+      # carries it: the committed file must be the build of these sources
+      - name: dist is up to date
+        run: git diff --exit-code -- dist/ || (echo "Run npm run build and commit dist/" && exit 1)
 
   hacs:
     name: hacs

@@ -51,6 +51,9 @@ npm ci
 npm run check    # typecheck, tests, build → dist/vigie-traffic-card.js
 ```
 
+`dist/vigie-traffic-card.js` is committed (HACS installs it from the repository until a
+release carries it): rebuild and commit it with every source change; CI checks it.
+
 Specification: [HA-SAIL-SPEC-001 §9.7](https://github.com/ovander/ha-vigie/blob/main/docs/HA-SAIL-SPEC-001.md)
 and tests [HA-SAIL-TEST-001 §3.8, §4.7](https://github.com/ovander/ha-vigie/blob/main/docs/HA-SAIL-TEST-001.md)
 in the Vigie repository.

@@ -30,6 +30,7 @@ in the same work package.
   with Vitest (U-CARD); rendering tested in a browser (F-CARD).
 - Every user-visible string in English and French (`src/i18n.ts`).
 - Tests carry the TEST ID in their name (`U-CARD-06 …`).
-- Gate before every push, identical to CI: `npm run check`.
+- Gate before every push, identical to CI: `npm run check`, then commit `dist/` (CI fails
+  when the committed build differs from the sources).
 - Branches `feat/…`, `fix/…`, `docs/…`; Conventional Commits; PRs to `main`, never push to
   `main`. Release: tag `vX.Y.Z` (pre-release `vX.Y.Z-beta.N`), owner's call.
