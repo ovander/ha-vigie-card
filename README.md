@@ -20,7 +20,8 @@ Two dashboard cards for Home Assistant, companions of the
 - **Your boat**, oriented on its heading (else its course), with a course vector of
   `vector_minutes`, and range rings. Under the map: its position in degrees and minutes,
   SOG, COG and heading, and whether the position is current; tap the boat for the same
-  details. When the GPS position is lost, the line says since when and the boat stays drawn,
+  details, with the position also in decimal degrees (`43.501917, 7.250000`, ready to paste
+  into a charting app or Vigie's `vigie.drop_anchor`). When the GPS position is lost, the line says since when and the boat stays drawn,
   faded, where it was last seen.
 - **Every AIS target** Vigie lists (the 50 nearest): a triangle oriented on heading or
   course, with its vector; a circle when stopped or without a course. Dark for Class A,

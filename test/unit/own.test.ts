@@ -1,7 +1,7 @@
 // U-CARD-08: the own boat's position in degrees and minutes (TEST HA-SAIL-TEST-001 §3.8, #77)
 import { describe, expect, it } from "vitest";
 
-import { formatPosition, positionState } from "../../src/own";
+import { formatDecimal, formatPosition, positionState } from "../../src/own";
 
 describe("U-CARD-08 position in degrees and minutes", () => {
   it("formats north/east and south/west, in the user's locale", () => {
@@ -13,6 +13,14 @@ describe("U-CARD-08 position in degrees and minutes", () => {
 
   it("carries rounded minutes into the degrees, never 60′", () => {
     expect(formatPosition("en", 43.9999999, 0)).toEqual(["44° 00.000′ N", "0° 00.000′ E"]);
+  });
+});
+
+describe("U-CARD-08 position in decimal degrees", () => {
+  it("signed, point and six decimals, whatever the language: pastes into charting apps", () => {
+    expect(formatDecimal(43.501916666666666, 7.25)).toBe("43.501917, 7.250000");
+    expect(formatDecimal(-33.856, -151.2153)).toBe("-33.856000, -151.215300");
+    expect(formatDecimal(0, -0.0000001)).toBe("0.000000, 0.000000"); // never "-0.000000"
   });
 });
 
