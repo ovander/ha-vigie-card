@@ -34,5 +34,6 @@ jobs:
       - uses: hacs/action@main
         with:
           category: plugin
-          # No brand images for a plugin; topics and description are set on GitHub
-          ignore: brands
+          # brands: not used by plugins. images: the README gets a screenshot of the map
+          # with the WP23 bench check (ovander/ha-vigie#64 follow-up); remove it then
+          ignore: brands images
