@@ -46,7 +46,8 @@ lookout and use your chartplotter or charting software to navigate.
 ## Requirements
 
 - Home Assistant 2026.2.0 or later, with [Vigie](https://github.com/ovander/ha-vigie)
-  0.3.0-beta.1 or later (its `targets` rows carry `heading` and `threat`).
+  0.3.0-beta.1 or later (its `targets` rows carry `heading` and `threat`); 0.4.0-beta.1 or
+  later for the anchor card's *Recenter* and *Move the anchor*.
 
 ## Installation (HACS)
 
@@ -101,7 +102,7 @@ A second card in the same download, for the anchor watch in the cockpit:
   the time the watch is on): **Recenter**, after 10 minutes at anchor, on the centre of the
   swing track; **Move the anchor**, by tapping the map. Both draw the new circle dashed and
   ask before changing anything; the time at anchor and the radius are kept. Disabled while
-  the alarm is on. Needs Vigie with `keep_since` (the release after 0.3.0-beta.1).
+  the alarm is on. Needs Vigie 0.4.0-beta.1 or later.
 
 These buttons are the only actions either card takes, through Home Assistant; the traffic
 map never changes anything. To drop the anchor at a position read on the chartplotter,
