@@ -5,30 +5,33 @@ versioning: SemVer.
 
 ## [Unreleased]
 
-### Added
-- Visual editor (ovander/ha-vigie#67, WP23): Home Assistant form with Vigie entity
-  pickers, every option editable, labels and help in English and French; the YAML keeps
-  only what you set (F-CARD-08).
-- The traffic map (ovander/ha-vigie#65, WP22), Leaflet bundled: own boat with course
-  vector and range rings; every target oriented on heading or course, coloured by class,
-  faded when stale; threats in red with their CPA line, point and label; the anchor and
-  its swing circle (red on alarm, shown from the switch when the distance is unavailable);
-  details on tap; follow mode with a re-centre button; ship types in English and French.
-  AIS names only ever rendered as text. Tests U-CARD-01…05 and F-CARD-01…07, 09 (headless
-  Chromium) against states recorded from Vigie, and a smoke test of the built file.
+## [0.1.0-beta.1] - 2026-10-22
 
-### Fixed
-- Found by the E-08 bench pre-run in Home Assistant 2026.2.3 (ovander/ha-vigie#67):
-  - the map opened at world zoom with every boat on one spot: Home Assistant lays the card
-    out after its first states, and the view was fitted on a 0 px map; it now waits for
-    the map to have a size;
-  - labels faded out and in at every update (Leaflet fade animation, now off);
-  - an open details popup was pushed out of view by follow mode; the view now stays still
-    while a popup is open;
-  - numbers now use the user's locale (0,45 NM in French), as Home Assistant does;
-  - the visual editor was blank: `ha-form` asks for a label for its layout grid too.
-- Card skeleton (ovander/ha-vigie#64, WP21): `custom:vigie-traffic-card` registered in the
-  card picker, configuration validated with the field named in the error (U-CARD-06),
-  English and French strings (U-CARD-07), target count and own-position notice; CI
-  (typecheck, tests, build, HACS validation) and a release workflow that attaches
-  `vigie-traffic-card.js` to each release.
+First beta of the Vigie traffic card (Vigie phase P6): every AIS target around your boat on
+one map. Needs [Vigie](https://github.com/ovander/ha-vigie) 0.3.0-beta.1 or later. Checked
+in Home Assistant 2026.2.3 with Vigie's bench scenarios (plain background: no map tiles in
+that sandbox); the check with real map tiles and on board is still to do.
+
+### Added
+- `custom:vigie-traffic-card` (ovander/ha-vigie#64, #65, #67), Leaflet bundled:
+  - your boat with its course vector and range rings;
+  - every target Vigie lists (the 50 nearest), oriented on heading or course, dark for
+    Class A, grey for Class B, faded when the last report is older than 3 minutes;
+  - threats in red with a dashed line to the point of closest approach and a label
+    `NAME: CPA 0.45 NM in 2.7 min`; the card border turns red while `collision_risk` is on;
+  - the anchor and its swing circle while the anchor watch is on, red on alarm;
+  - details on tap (MMSI, class, ship type, length, SOG, COG, heading, distance, CPA,
+    TCPA, age of the last report);
+  - follow mode (stops when you pan, ⌖ to resume, paused while details are open);
+  - English and French, numbers in your locale.
+- Visual editor: Home Assistant form with Vigie entity pickers, every option, the YAML
+  keeps only what you set.
+- AIS names, which come from other vessels, are only ever shown as text.
+- Tests: unit tests of the geometry and rules (hand-computed values), the card rendered in
+  headless Chromium against states recorded from Vigie, a smoke test of the built file.
+  Five problems found by the bench pre-run in Home Assistant were fixed before this
+  release (first view at world zoom, label flicker, popup pushed out of view, decimal
+  separator, blank editor), each covered by a test.
+
+[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.1.0-beta.1...HEAD
+[0.1.0-beta.1]: https://github.com/ovander/ha-vigie-card/releases/tag/v0.1.0-beta.1
