@@ -5,6 +5,13 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+### Added
+- Anchor card: the swing track since the drop, from Home Assistant's history of your boat
+  (one read-only request per drop, then the positions seen live; at most `track_hours`,
+  6 by default, and 500 points) (ovander/ha-vigie#80).
+- Anchor card: visual editor; only the switch is needed, the other entities follow its name
+  (ovander/ha-vigie#80).
+
 ## [0.2.0-beta.2] - 2026-10-22
 
 Your boat's position in decimal degrees, and the released file carries its version again.

@@ -267,6 +267,34 @@ describe("F-ACARD", () => {
   });
 });
 
+describe("F-ACARD-11 visual editor", () => {
+  it("opens with a one-line configuration and sends back what the form changes", async () => {
+    const editor = VigieAnchorCard.getConfigElement() as HTMLElement & {
+      setConfig(c: object): void;
+      hass?: object;
+      updateComplete: Promise<boolean>;
+    };
+    editor.hass = { locale: { language: "fr" } };
+    editor.setConfig({ type: CONFIG.type, switch: CONFIG.switch });
+    document.body.appendChild(editor);
+    await editor.updateComplete;
+    const form = editor.shadowRoot!.querySelector("ha-form") as HTMLElement & {
+      data: Record<string, unknown>;
+      computeLabel: (i: { name: string }) => string | undefined;
+      computeHelper: (i: { name: string }) => string | undefined;
+    };
+    expect(form.data).toEqual({ switch: "switch.garnet_anchor_watch" });
+    expect(form.computeLabel({ name: "switch" })).toBe("Interrupteur de veille au mouillage");
+    expect(form.computeHelper({ name: "track_hours" })).toContain("0 pour aucune");
+    expect(form.computeLabel({ name: "" })).toBeUndefined();
+    const changes: Record<string, unknown>[] = [];
+    editor.addEventListener("config-changed", (e) => changes.push((e as CustomEvent).detail.config));
+    form.dispatchEvent(new CustomEvent("value-changed", { detail: { value: { ...form.data, track_hours: 2 } } }));
+    expect(changes).toEqual([{ type: CONFIG.type, switch: CONFIG.switch, track_hours: 2 }]);
+    editor.remove();
+  });
+});
+
 describe("F-ACARD-10 calls", () => {
   it("F-ACARD-10 only the three calls of SPEC §9.8, on the configured entities, and the history request", () => {
     // Runs after the tests above (same file, in order): every call they made

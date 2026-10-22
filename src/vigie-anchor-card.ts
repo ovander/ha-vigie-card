@@ -24,6 +24,7 @@ import {
   type TrackPoint,
   trackFrom,
 } from "./anchor-model";
+import { ANCHOR_EDITOR_TAG } from "./editor";
 import { formatNumber, localize, type StringKey } from "./i18n";
 import { type HassState, type OwnBoat, ownBoat } from "./model";
 import { formatTime, positionState } from "./own";
@@ -75,6 +76,11 @@ export class VigieAnchorCard extends LitElement {
 
   getCardSize(): number {
     return 7;
+  }
+
+  /** The visual editor (F-ACARD-11). */
+  static getConfigElement(): HTMLElement {
+    return document.createElement(ANCHOR_EDITOR_TAG);
   }
 
   /** Configuration proposed when the card is added from the card picker. */

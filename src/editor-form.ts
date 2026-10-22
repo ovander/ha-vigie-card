@@ -33,8 +33,8 @@ export const SCHEMA = [
   { name: "overlay", selector: { text: {} } },
 ] as const;
 
-/** Every option the form edits (F-CARD-08: all of them). */
-export function schemaNames(): string[] {
+/** Every option a form edits (F-CARD-08, F-ACARD-11: all of them). */
+export function schemaNames(schema: readonly unknown[] = SCHEMA): string[] {
   const names: string[] = [];
   const walk = (items: readonly { name: string; schema?: readonly unknown[] }[]) => {
     for (const item of items) {
@@ -42,7 +42,7 @@ export function schemaNames(): string[] {
       else names.push(item.name);
     }
   };
-  walk(SCHEMA as never);
+  walk(schema as never);
   return names;
 }
 
