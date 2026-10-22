@@ -19,9 +19,12 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      # Headless Chromium for the F-CARD browser tests and the smoke test (TEST §4.7)
+      - run: npx playwright install --with-deps chromium
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npm run smoke
       # HACS installs dist/vigie-traffic-card.js from the repository until a release
       # carries it: the committed file must be the build of these sources
       - name: dist is up to date

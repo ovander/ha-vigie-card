@@ -1,0 +1,323 @@
+/**
+ * The Leaflet map inside the card (SPEC HA-SAIL-SPEC-001 §9.7 drawing rules).
+ *
+ * One map per card, created once; each update redraws the layers from the current states
+ * (at most 50 targets every few seconds), keeping the view, the follow mode and an open
+ * details popup. AIS names are untrusted text: they only ever reach the page as
+ * `textContent`, never as HTML.
+ */
+
+import * as L from "leaflet";
+
+import type { VigieTrafficCardConfig } from "./config";
+import { cpaPoint, type LatLon, METRES_PER_NM, vectorEnd } from "./geo";
+import { localize, shipType } from "./i18n";
+import type { Anchor, OwnBoat, TargetRow } from "./model";
+import { COLORS, hasVector, labelFor, showLabel, styleFor, symbolFor } from "./style";
+
+export interface MapView {
+  own: OwnBoat | null;
+  targets: TargetRow[];
+  anchor: Anchor | null;
+}
+
+const ICON = 22;
+
+function svg(body: string, rotation: number | null): string {
+  const turn = rotation === null ? "" : ` style="transform: rotate(${rotation}deg)"`;
+  return `<svg viewBox="-11 -11 22 22" width="${ICON}" height="${ICON}"${turn}>${body}</svg>`;
+}
+
+function targetIcon(row: TargetRow): L.DivIcon {
+  const style = styleFor(row);
+  const symbol = symbolFor(row);
+  const paint = `fill="${style.color}" fill-opacity="${style.opacity}" stroke="#fff" stroke-width="1.2"`;
+  const body =
+    symbol.shape === "triangle"
+      ? `<path d="M0,-9 L6.5,8 L0,4.5 L-6.5,8 Z" ${paint}/>`
+      : `<circle r="5" ${paint}/>`;
+  const classes = ["vigie-target", `vigie-${style.kind}`, `vigie-${symbol.shape}`];
+  if (style.stale) classes.push("vigie-stale");
+  return L.divIcon({
+    className: classes.join(" "),
+    html: svg(body, symbol.rotation),
+    iconSize: [ICON, ICON],
+    iconAnchor: [ICON / 2, ICON / 2],
+  });
+}
+
+function ownIcon(own: OwnBoat): L.DivIcon {
+  const symbol = symbolFor(own);
+  const body =
+    symbol.shape === "triangle"
+      ? `<path d="M0,-10 C4,-5 5,2 4,9 L-4,9 C-5,2 -4,-5 0,-10 Z" fill="${COLORS.own}" stroke="#fff" stroke-width="1.5"/>`
+      : `<circle r="6" fill="${COLORS.own}" stroke="#fff" stroke-width="1.5"/>`;
+  return L.divIcon({
+    className: "vigie-own",
+    html: svg(body, symbol.rotation),
+    iconSize: [ICON, ICON],
+    iconAnchor: [ICON / 2, ICON / 2],
+  });
+}
+
+function anchorIcon(alarm: boolean): L.DivIcon {
+  const color = alarm ? COLORS.anchorAlarm : COLORS.anchor;
+  const body =
+    `<g fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round">` +
+    `<circle cy="-7" r="2.2"/><path d="M0,-4.8 V8 M-4,-2 H4 M-7,2 C-6,7 -3,8 0,8 C3,8 6,7 7,2"/></g>`;
+  return L.divIcon({
+    className: alarm ? "vigie-anchor vigie-anchor-alarm" : "vigie-anchor",
+    html: svg(body, null),
+    iconSize: [ICON, ICON],
+    iconAnchor: [ICON / 2, ICON / 2],
+  });
+}
+
+const fixed = (v: number | null, digits: number) => (v === null ? null : v.toFixed(digits));
+
+export class TrafficMap {
+  readonly map: L.Map;
+  private readonly own = L.layerGroup();
+  private readonly targets = L.layerGroup();
+  private readonly rings = L.layerGroup();
+  private readonly anchor = L.layerGroup();
+  private view: MapView = { own: null, targets: [], anchor: null };
+  private fitted = false;
+  private followOwn = true;
+  private openMmsi: number | null = null;
+  private redrawing = false;
+
+  constructor(
+    container: HTMLElement,
+    private readonly config: VigieTrafficCardConfig,
+    private readonly language: () => string | undefined,
+    private readonly onFollowChange: (follow: boolean) => void = () => {},
+  ) {
+    this.map = L.map(container, { zoomControl: true, attributionControl: true });
+    L.tileLayer(config.tiles, {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap contributors",
+    }).addTo(this.map);
+    if (config.overlay) L.tileLayer(config.overlay, { maxZoom: 19 }).addTo(this.map);
+    for (const layer of [this.rings, this.anchor, this.targets, this.own]) layer.addTo(this.map);
+    this.map.setView([0, 0], 2);
+    this.map.on("dragstart", () => this.setFollow(false));
+    this.map.on("zoomend", () => this.drawTargets()); // labels depend on the zoom
+    this.map.on("popupopen", (e: L.PopupEvent) => {
+      const mmsi = (e.popup.options as { mmsi?: number }).mmsi;
+      if (mmsi !== undefined) this.openMmsi = mmsi;
+    });
+    this.map.on("popupclose", () => {
+      if (!this.redrawing) this.openMmsi = null;
+    });
+  }
+
+  get follow(): boolean {
+    return this.followOwn;
+  }
+
+  setFollow(follow: boolean): void {
+    if (follow === this.followOwn) return;
+    this.followOwn = follow;
+    this.onFollowChange(follow);
+    if (follow) this.center();
+  }
+
+  update(view: MapView): void {
+    this.view = view;
+    this.drawOwn();
+    this.drawRings();
+    this.drawAnchor();
+    this.drawTargets();
+    if (!this.fitted) this.fit();
+    else if (this.followOwn) this.center();
+  }
+
+  invalidateSize(): void {
+    this.map.invalidateSize({ animate: false });
+    if (this.followOwn) this.center();
+  }
+
+  remove(): void {
+    this.map.remove();
+  }
+
+  private fit(): void {
+    const { own, targets } = this.view;
+    if (own) {
+      const radius = Math.max(...this.config.rings_nm, 1) * METRES_PER_NM;
+      this.map.fitBounds(L.latLng(own.lat, own.lon).toBounds(2 * radius), { animate: false });
+      this.fitted = true;
+    } else if (targets.length) {
+      this.map.fitBounds(L.latLngBounds(targets.map((t) => [t.lat, t.lon])), {
+        animate: false,
+        padding: [20, 20],
+        maxZoom: 14,
+      });
+      this.fitted = true;
+    }
+  }
+
+  private center(): void {
+    const own = this.view.own;
+    if (own) this.map.panTo([own.lat, own.lon], { animate: false });
+  }
+
+  private vector(from: LatLon, sog: number, cog: number, color: string, opacity: number) {
+    const to = vectorEnd(from[0], from[1], sog, cog, this.config.vector_minutes);
+    return L.polyline([from, to], { color, weight: 2, opacity, interactive: false, className: "vigie-vector" });
+  }
+
+  private drawOwn(): void {
+    this.own.clearLayers();
+    const own = this.view.own;
+    if (!own) return;
+    const at: LatLon = [own.lat, own.lon];
+    if (hasVector(own)) this.own.addLayer(this.vector(at, own.sog!, own.cog!, COLORS.own, 1));
+    this.own.addLayer(L.marker(at, { icon: ownIcon(own), interactive: false, zIndexOffset: 1000 }));
+  }
+
+  private drawRings(): void {
+    this.rings.clearLayers();
+    const own = this.view.own;
+    if (!own) return;
+    for (const nm of this.config.rings_nm) {
+      this.rings.addLayer(
+        L.circle([own.lat, own.lon], {
+          radius: nm * METRES_PER_NM,
+          color: COLORS.ring,
+          weight: 1,
+          opacity: 0.5,
+          dashArray: "2 6",
+          fill: false,
+          interactive: false,
+          className: "vigie-ring",
+        }),
+      );
+    }
+  }
+
+  private drawAnchor(): void {
+    this.anchor.clearLayers();
+    const anchor = this.view.anchor;
+    if (!anchor) return;
+    const color = anchor.alarm ? COLORS.anchorAlarm : COLORS.anchor;
+    this.anchor.addLayer(
+      L.circle([anchor.lat, anchor.lon], {
+        radius: anchor.radius_m,
+        color,
+        weight: anchor.alarm ? 3 : 1.5,
+        fillOpacity: 0.06,
+        interactive: false,
+        className: anchor.alarm ? "vigie-anchor-circle vigie-anchor-alarm" : "vigie-anchor-circle",
+      }),
+    );
+    const tip = document.createElement("span");
+    tip.textContent = anchor.alarm
+      ? localize(this.language(), "anchor_alarm")
+      : localize(this.language(), "anchor", { radius: Math.round(anchor.radius_m) });
+    this.anchor.addLayer(
+      L.marker([anchor.lat, anchor.lon], { icon: anchorIcon(anchor.alarm) }).bindTooltip(tip),
+    );
+  }
+
+  private drawTargets(): void {
+    this.redrawing = true;
+    this.targets.clearLayers();
+    const zoom = this.map.getZoom();
+    const lang = this.language();
+    let reopen: L.Marker | null = null;
+    for (const row of this.view.targets) {
+      const at: LatLon = [row.lat, row.lon];
+      const style = styleFor(row);
+      if (hasVector(row)) {
+        this.targets.addLayer(this.vector(at, row.sog!, row.cog!, style.color, style.opacity));
+      }
+      const cpa = cpaPoint(row);
+      if (cpa) {
+        this.targets.addLayer(
+          L.polyline([at, cpa], {
+            color: COLORS.threat,
+            weight: 1.5,
+            dashArray: "4 4",
+            interactive: false,
+            className: "vigie-cpa",
+          }),
+        );
+        this.targets.addLayer(
+          L.circleMarker(cpa, {
+            radius: 4,
+            color: COLORS.threat,
+            fillOpacity: 0.8,
+            interactive: false,
+            className: "vigie-cpa-point",
+          }),
+        );
+      }
+      const marker = L.marker(at, { icon: targetIcon(row), riseOnHover: true, zIndexOffset: row.threat ? 500 : 0 });
+      if (showLabel(row, zoom, this.config.label_zoom)) {
+        const label = document.createElement("span");
+        label.textContent =
+          row.threat && row.cpa_nm !== null && row.tcpa_min !== null
+            ? localize(lang, "threat_label", {
+                name: labelFor(row),
+                cpa: row.cpa_nm.toFixed(2),
+                tcpa: row.tcpa_min.toFixed(1),
+              })
+            : labelFor(row);
+        marker.bindTooltip(label, {
+          permanent: true,
+          direction: "right",
+          offset: [10, 0],
+          className: row.threat ? "vigie-label vigie-label-threat" : "vigie-label",
+        });
+      }
+      const popupOptions = { mmsi: row.mmsi, className: "vigie-popup" } as L.PopupOptions;
+      marker.bindPopup(() => this.details(row), popupOptions);
+      this.targets.addLayer(marker);
+      if (row.mmsi === this.openMmsi) reopen = marker;
+    }
+    if (reopen) reopen.openPopup();
+    else this.openMmsi = null;
+    this.redrawing = false;
+  }
+
+  /** The details shown when a target is tapped; built with textContent only. */
+  details(row: TargetRow): HTMLElement {
+    const lang = this.language();
+    const t = (key: Parameters<typeof localize>[1]) => localize(lang, key);
+    const box = document.createElement("div");
+    box.className = "vigie-details";
+    const title = document.createElement("strong");
+    title.textContent = labelFor(row);
+    box.appendChild(title);
+    const lines: [string, string | null][] = [
+      [t("mmsi"), String(row.mmsi)],
+      [t("class"), row.class],
+      [t("ship_type"), row.ship_type === null ? null : shipType(lang, row.ship_type)],
+      [t("length"), row.length_m === null ? null : `${row.length_m} ${t("unit_m")}`],
+      [t("sog"), fixed(row.sog, 1) && `${fixed(row.sog, 1)} ${t("unit_kn")}`],
+      [t("cog"), fixed(row.cog, 0) && `${fixed(row.cog, 0)}°`],
+      [t("heading"), row.heading === null ? null : `${row.heading}°`],
+      [t("distance"), fixed(row.distance_nm, 2) && `${fixed(row.distance_nm, 2)} ${t("unit_nm")}`],
+      [t("cpa"), fixed(row.cpa_nm, 2) && `${fixed(row.cpa_nm, 2)} ${t("unit_nm")}`],
+      [t("tcpa"), fixed(row.tcpa_min, 1) && `${fixed(row.tcpa_min, 1)} ${t("unit_min")}`],
+      [t("age"), row.age_s === null ? null : `${row.age_s} ${t("unit_s")}`],
+    ];
+    const table = document.createElement("table");
+    for (const [label, value] of lines) {
+      if (value === null) continue;
+      const tr = table.insertRow();
+      tr.insertCell().textContent = label;
+      tr.insertCell().textContent = value;
+    }
+    box.appendChild(table);
+    if (row.threat) {
+      const risk = document.createElement("div");
+      risk.className = "vigie-details-threat";
+      risk.textContent = t("threat");
+      box.appendChild(risk);
+    }
+    return box;
+  }
+}
