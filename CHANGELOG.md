@@ -5,6 +5,12 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.2.0-beta.3] - 2026-10-22
+
+The anchor card grows up: swing track, visual editor, recentering the circle, and three
+fixes from the bench pre-run in Home Assistant 2026.2.3. **Needs Vigie 0.4.0-beta.1 or
+later** for *Recenter* and *Move the anchor*; everything else works with 0.3.0-beta.1.
+
 ### Added
 - Anchor card: **Recenter** (on the centre of the swing, after 10 minutes at anchor) and
   **Move the anchor** (tap the map), with a dashed preview and a confirmation; the time at
@@ -98,7 +104,8 @@ that sandbox); the check with real map tiles and on board is still to do.
   release (first view at world zoom, label flicker, popup pushed out of view, decimal
   separator, blank editor), each covered by a test.
 
-[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.2...HEAD
+[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.3...HEAD
+[0.2.0-beta.3]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.2...v0.2.0-beta.3
 [0.2.0-beta.2]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.1...v0.2.0-beta.2
 [0.2.0-beta.1]: https://github.com/ovander/ha-vigie-card/compare/v0.1.0-beta.2...v0.2.0-beta.1
 [0.1.0-beta.2]: https://github.com/ovander/ha-vigie-card/compare/v0.1.0-beta.1...v0.1.0-beta.2
