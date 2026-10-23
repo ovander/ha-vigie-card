@@ -14,8 +14,8 @@ Two dashboard cards for Home Assistant, companions of the
 
 > **Status: beta (P6, P7).** The traffic map and its visual editor work, checked in Home
 > Assistant 2026.2.3 with Vigie's bench scenarios and with map tiles in the owner's lab;
-> the anchor card works, with its swing track and visual editor. The on-board checks are
-> still to do.
+> the anchor card works, with its swing track and visual editor; the ready-made dashboard
+> works (from 0.2.0-beta.4). The on-board checks are still to do.
 
 ## Traffic map: what it shows
 
