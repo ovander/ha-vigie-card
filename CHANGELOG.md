@@ -5,6 +5,12 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.2.0-beta.4] - 2026-10-23
+
+A ready-made Vigie dashboard and an installation guide for newcomers to Home Assistant.
+No change to either card. Works with Vigie 0.3.0-beta.1 or later (0.4.0-beta.1 for the
+anchor card's *Recenter* and *Move the anchor*, as before).
+
 ### Added
 - A ready-made **Vigie dashboard**: `strategy: {type: custom:vigie}` builds one view per
   Vigie boat with the traffic map and the anchor card, configured from Home Assistant's
@@ -117,7 +123,8 @@ that sandbox); the check with real map tiles and on board is still to do.
   release (first view at world zoom, label flicker, popup pushed out of view, decimal
   separator, blank editor), each covered by a test.
 
-[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.3...HEAD
+[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.4...HEAD
+[0.2.0-beta.4]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.3...v0.2.0-beta.4
 [0.2.0-beta.3]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.2...v0.2.0-beta.3
 [0.2.0-beta.2]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.1...v0.2.0-beta.2
 [0.2.0-beta.1]: https://github.com/ovander/ha-vigie-card/compare/v0.1.0-beta.2...v0.2.0-beta.1
