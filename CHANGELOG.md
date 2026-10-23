@@ -5,6 +5,19 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+### Added
+- A ready-made **Vigie dashboard**: `strategy: {type: custom:vigie}` builds one view per
+  Vigie boat with the traffic map and the anchor card, configured from Home Assistant's
+  entity registry (renamed entities included); `boat` keeps one boat. Also as a single
+  view in an existing dashboard. Two lines to paste, nothing to rename
+  (ovander/ha-vigie#87).
+
+### Changed
+- README: installation step by step for newcomers to Home Assistant (HACS with the
+  *Dashboard* type, beta versions, the resource check, the phone app's cache), three ways
+  to put the maps on a dashboard, and a troubleshooting table (owner's lab finding,
+  ovander/ha-vigie#87).
+
 ## [0.2.0-beta.3] - 2026-10-22
 
 The anchor card grows up: swing track, visual editor, recentering the circle, and three

@@ -4,13 +4,15 @@ Standing instructions for Claude Code in this repository.
 
 ## Sources of truth
 
-The cards are components C-12 (traffic map) and C-13 (anchor card) of Vigie. Their
+The cards are components C-12 (traffic map) and C-13 (anchor card) of Vigie, and the
+ready-made dashboard (strategy `custom:vigie`) is C-14. Their
 specification and tests live in the Vigie repository and win over this code:
 
-- SPEC `docs/HA-SAIL-SPEC-001.md` §9.7 (decisions OD-29…OD-33) and §9.8 (OD-34…OD-38) in
+- SPEC `docs/HA-SAIL-SPEC-001.md` §9.7 (decisions OD-29…OD-33), §9.8 (OD-34…OD-39) and §9.9
+  (OD-40) in
   `ovander/ha-vigie`;
 - TEST `docs/HA-SAIL-TEST-001.md` §3.8 (U-CARD), §3.9 (U-ACARD), §4.7 (F-CARD), §4.8
-  (F-ACARD), E-08, E-09.
+  (F-ACARD), §3.10 (U-DASH), §4.9 (F-DASH), E-08, E-09.
 
 Work packages, issues and milestones (P6) are tracked in `ovander/ha-vigie`; PRs here
 reference them as `ovander/ha-vigie#N`. Spec or test changes go to the Vigie repository

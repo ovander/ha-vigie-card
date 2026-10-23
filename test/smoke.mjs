@@ -56,6 +56,13 @@ const result = await page.evaluate(async ([s, a]) => {
       const r = ac.shadowRoot;
       return [r.querySelectorAll(".vigie-anchor").length, r.querySelector(".status")?.textContent.trim()];
     })(),
+    // The ready-made dashboard (strategy) is in the same file and finds Garnet
+    dashboard: await (async () => {
+      const strategy = customElements.get("ll-strategy-dashboard-vigie");
+      if (!strategy) return null;
+      const d = await strategy.generate({}, { states: { ...s, ...a } });
+      return d.views.map((v) => v.sections.flatMap((x) => x.cards).map((c) => c.type).join(","));
+    })(),
   };
 }, [states, anchor]);
 await browser.close();
@@ -63,7 +70,7 @@ await browser.close();
 // release workflow), a local or CI build carries 0.0.0-dev
 result.version = infos.filter((t) => t.startsWith("VIGIE-CARD ")).join(" | ");
 const version = (process.env.EXPECTED_VERSION ?? "0.0.0-dev").replace(/^v/, "");
-const expected = { targets: 4, own: 1, rings: 3, anchor: 1, leafletCss: "absolute", anchorCard: [1, "Watching"], version: `VIGIE-CARD ${version}` };
+const expected = { targets: 4, own: 1, rings: 3, anchor: 1, leafletCss: "absolute", anchorCard: [1, "Watching"], dashboard: ["heading,custom:vigie-traffic-card,heading,custom:vigie-anchor-card"], version: `VIGIE-CARD ${version}` };
 const ok = JSON.stringify(result) === JSON.stringify(expected) && errors.length === 0;
 console.log(ok ? "smoke: ok" : "smoke: FAILED", JSON.stringify(result), errors);
 process.exit(ok ? 0 : 1);
