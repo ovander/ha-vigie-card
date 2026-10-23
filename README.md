@@ -8,7 +8,9 @@ Two dashboard cards for Home Assistant, companions of the
   anchor watch;
 - **Vigie anchor watch** (`custom:vigie-anchor-card`): the anchor watch in the cockpit, with
   the distance against the radius, the alarm, the swing circle and the drop / raise /
-  radius buttons ([Anchor card](#anchor-card)).
+  radius buttons ([Anchor card](#anchor-card));
+- **a ready-made Vigie dashboard** with both, for your boat, from two lines to paste
+  ([way A](#3-put-the-maps-on-a-dashboard)).
 
 > **Status: beta (P6, P7).** The traffic map and its visual editor work, checked in Home
 > Assistant 2026.2.3 with Vigie's bench scenarios and with map tiles in the owner's lab;
@@ -45,20 +47,101 @@ lookout and use your chartplotter or charting software to navigate.
 
 ## Requirements
 
-- Home Assistant 2026.2.0 or later, with [Vigie](https://github.com/ovander/ha-vigie)
-  0.3.0-beta.1 or later (its `targets` rows carry `heading` and `threat`); 0.4.0-beta.1 or
-  later for the anchor card's *Recenter* and *Move the anchor*.
+- Home Assistant 2026.2.0 or later, with [HACS](https://hacs.xyz) installed.
+- [Vigie](https://github.com/ovander/ha-vigie) 0.3.0-beta.1 or later, set up with your
+  boat (*Settings → Devices & services* lists **Vigie** with your boat under it);
+  0.4.0-beta.1 or later for the anchor card's *Recenter* and *Move the anchor*.
 
-## Installation (HACS)
+## Installation, step by step
 
-1. HACS → ⋮ → Custom repositories → `https://github.com/ovander/ha-vigie-card`, category
-   *Dashboard*.
-2. Download *Vigie cards* (turn on beta versions while only pre-releases exist). One
-   file holds both cards.
-3. Reload the browser (Cmd/Ctrl+Shift+R).
+Vigie (the integration) and Vigie cards (this dashboard part) are **two separate
+downloads** in HACS. Install Vigie first, following its README.
 
-The browser's console shows `VIGIE-CARD <version>` once the file is loaded: the version to
-give when asking for help.
+### 1. Download Vigie cards with HACS
+
+1. Open **HACS** in Home Assistant's sidebar.
+2. Top right, **⋮ → Custom repositories**.
+3. *Repository*: `https://github.com/ovander/ha-vigie-card`; *Type*: **Dashboard** (not
+   *Integration*). Click **Add**, then close the window.
+4. In HACS's search box, type **Vigie cards** and open it.
+5. Click **Download** (bottom right). Vigie cards only has beta versions for now: if the
+   window offers an older version than the
+   [latest release](https://github.com/ovander/ha-vigie-card/releases), turn on
+   *Show beta versions* and pick the newest `v…-beta.…`. Click **Download**.
+6. Reload the page **without the cache**: Ctrl+Shift+R (Windows, Linux) or Cmd+Shift+R
+   (Mac). In the phone app: *Settings → Companion app → Debugging → Reset frontend cache*,
+   then close and reopen the app.
+
+You do not need to restart Home Assistant: the cards are a file the browser loads. HACS adds
+that file to the dashboards' resources by itself (step 2 checks it).
+
+### 2. Check that the file is loaded (optional)
+
+*Settings → Dashboards → ⋮ (top right) → Resources* lists
+`/hacsfiles/ha-vigie-card/vigie-traffic-card.js`, type *JavaScript module*. If the
+*Resources* entry is missing from the ⋮ menu, turn on *Advanced mode* in your user
+profile (click your name, bottom left). If the line is missing, add it with
+**+ Add resource**, then reload as in step 1.6.
+
+### 3. Put the maps on a dashboard
+
+Pick one of three ways. The first is the simplest.
+
+**A. The ready-made Vigie dashboard (two lines to paste).** It finds your boat by
+itself: nothing to rename.
+
+1. *Settings → Dashboards → **+ Add dashboard** → New dashboard from scratch*. Title:
+   `Vigie`; icon: `mdi:sail-boat`. Click **Create**.
+2. Open **Vigie** in the sidebar. Click the **pencil** (top right), then
+   **⋮ → Raw configuration editor**.
+3. Delete everything in the editor and paste:
+
+   ```yaml
+   strategy:
+     type: custom:vigie
+   ```
+
+4. Click **Save**, then the **×** (top left).
+
+The dashboard shows your boat: the traffic map and, beside it (under it on a phone), the
+anchor card. With several boats there is one tab per boat; to keep a single one, add a
+line `boat: Garnet` (your boat's name) under `type: custom:vigie`.
+
+The dashboard rebuilds itself on every load, so it follows Vigie: there is nothing to
+maintain. To change a card yourself (its height, the tiles, a sea-mark overlay), click the
+pencil, then **⋮ → Take control**: Home Assistant turns the generated cards into an
+ordinary dashboard that you edit like any other, and that no longer rebuilds itself.
+
+**B. A Vigie tab in a dashboard you already have.** Open that dashboard, click the
+pencil, then **⋮ → Raw configuration editor**, and add at the end of `views:` (keep the
+two-space indentation of the other views):
+
+```yaml
+  - title: Boat
+    path: boat
+    icon: mdi:sail-boat
+    strategy:
+      type: custom:vigie
+```
+
+**C. Card by card.** On any dashboard, click the pencil, then **+ Add card**, type
+**Vigie** in the search box and choose *Vigie traffic map* or *Vigie anchor watch*. The
+editor fills in your boat's entities; click **Save**. The configuration of each card is
+below.
+
+### Troubleshooting
+
+| What you see | What to do |
+|---|---|
+| *Vigie traffic map* is not in the card list, or a red box `Custom element doesn't exist: vigie-traffic-card` (or `…-anchor-card`, or `custom:vigie` on a dashboard) | The browser has not loaded the file: check step 2, then reload without the cache (step 1.6). On a phone, reset the app's frontend cache |
+| HACS shows no *Vigie cards* | The custom repository was added with the wrong type: remove it in *Custom repositories* and add it again with type **Dashboard** |
+| The dashboard says *No Vigie boat found* | Vigie is not set up yet, or not loaded: check *Settings → Devices & services → Vigie*, then reload the dashboard |
+| `Entity sensor.….ais_targets not found` in a card | The entity names differ from the example: use the visual editor (pencil on the card), which lists your boat's entities, or way A |
+| Grey map with the boat and targets drawn | The map tiles cannot be loaded (no internet on board): the picture is still right, only the background is missing |
+| Empty map, `Own position unknown` | Vigie has no GPS position yet: check the receiver, or the replay on the bench |
+
+The browser's console (F12) shows `VIGIE-CARD <version>` once the file is loaded: give that
+version when asking for help.
 
 ## Traffic map: configuration
 
@@ -140,8 +223,8 @@ npm run check    # typecheck, unit + browser tests, build → dist/vigie-traffic
 `dist/vigie-traffic-card.js` is committed (HACS installs it from the repository until a
 release carries it): rebuild and commit it with every source change; CI checks it.
 
-Specification: [HA-SAIL-SPEC-001 §9.7](https://github.com/ovander/ha-vigie/blob/main/docs/HA-SAIL-SPEC-001.md)
-and tests [HA-SAIL-TEST-001 §3.8, §4.7](https://github.com/ovander/ha-vigie/blob/main/docs/HA-SAIL-TEST-001.md)
+Specification: [HA-SAIL-SPEC-001 §9.7–§9.9](https://github.com/ovander/ha-vigie/blob/main/docs/HA-SAIL-SPEC-001.md)
+and tests [HA-SAIL-TEST-001 §3.8–§3.10, §4.7–§4.9](https://github.com/ovander/ha-vigie/blob/main/docs/HA-SAIL-TEST-001.md)
 in the Vigie repository.
 
 ## License
