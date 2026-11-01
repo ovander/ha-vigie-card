@@ -186,6 +186,11 @@ A second card in the same download, for the anchor watch in the cockpit:
   swing track; **Move the anchor**, by tapping the map. Both draw the new circle dashed and
   ask before changing anything; the time at anchor and the radius are kept. Disabled while
   the alarm is on. Needs Vigie 0.4.0-beta.1 or later.
+- during a drag alarm, **Drop again here**: the anchor has held again (re-anchored, or
+  more chain out) and you want a new circle without raising the anchor first. It asks
+  first, with the distance from the current anchor, then clears the alarm and centres a new
+  circle, with the current radius, on the boat; the swing track starts again. Disabled when
+  the alarm is *Position lost* (no position to drop at).
 
 These buttons are the only actions either card takes, through Home Assistant; the traffic
 map never changes anything. To drop the anchor at a position read on the chartplotter,

@@ -3,8 +3,9 @@
  * (SPEC HA-SAIL-SPEC-001 §9.8, component C-13).
  *
  * Distance against the radius, the alarm and its reason, a small map with the swing circle,
- * and three controls: drop here, raise (after a confirmation), radius by its step. These
- * are the only service calls of either card (OD-35). An aid only: the alert that wakes the
+ * and its controls: drop here, raise (after a confirmation), radius by its step (OD-35),
+ * recenter (OD-39) and drop again during the drag alarm (after a warning, WP35). These are
+ * the only service calls of either card. An aid only: the alert that wakes the
  * crew is the phone notification, not this card.
  */
 
@@ -57,6 +58,7 @@ export class VigieAnchorCard extends LitElement {
     hass: { attribute: false },
     _config: { state: true },
     _confirming: { state: true },
+    _redropping: { state: true },
     _recenter: { state: true },
     _error: { state: true },
   };
@@ -64,6 +66,8 @@ export class VigieAnchorCard extends LitElement {
   hass?: AnchorHass;
   private _config?: VigieAnchorCardConfig;
   private _confirming = false;
+  /** Asking before dropping again during the drag alarm (WP35). */
+  private _redropping = false;
   private _recenter: Recenter | null = null;
   private _error: string | null = null;
   private _lastOwn: OwnBoat | null = null;
@@ -129,12 +133,13 @@ export class VigieAnchorCard extends LitElement {
     if (changed.has("hass")) {
       const status = this._reading().status;
       if (status === "off") this._confirming = false;
+      if (status !== "dragging") this._redropping = false;
       // An alarm, or the watch turned off, ends a recentering in progress (OD-39)
       if (status === "off" || status === "dragging" || status === "position_lost") this._endRecenter();
     }
   }
 
-  /** One of the three calls of SPEC §9.8; a refusal is shown, nothing else changes. */
+  /** One of the calls of SPEC §9.8; a refusal is shown, nothing else changes. */
   private async _call(domain: "switch" | "number" | "vigie", service: string, data: Record<string, unknown>) {
     this._error = null;
     try {
@@ -154,6 +159,14 @@ export class VigieAnchorCard extends LitElement {
   private _raise(): void {
     this._confirming = false;
     void this._call("switch", "turn_off", { entity_id: this._config!.switch });
+  }
+
+  /** The fifth call (WP35): a new drop at the boat's position, which clears the drag alarm. */
+  private _redrop(): void {
+    this._redropping = false;
+    const entry = this._entryId();
+    if (!entry) return;
+    void this._call("vigie", "drop_anchor", { config_entry_id: entry });
   }
 
   /** Vigie's config entry for this boat, from the switch's device; null when not found. */
@@ -275,6 +288,7 @@ export class VigieAnchorCard extends LitElement {
                   ?disabled=${up === null} @click=${() => up !== null && this._setRadius(up)}>+</button>
               </div>
               <button class="raise" @click=${() => (this._confirming = true)}>${t("anchor_card.raise")}</button>
+              ${alarm ? this._redropButton(r.status === "dragging" && own !== null) : nothing}
               <div class="recenter-control">
                 <button class="recenter secondary" ?disabled=${alarm || this._entryId() === null}
                   @click=${() => this._startRecenter()}>${t("anchor_card.recenter")}</button>
@@ -287,6 +301,17 @@ export class VigieAnchorCard extends LitElement {
               ${own === null ? html`<span class="hint">${t("anchor_card.no_position")}</span>` : nothing}`}
       </div>
       ${this._recenterBox(armed)}
+      ${this._redropping && r.status === "dragging"
+        ? html`<div class="redrop-confirm confirm" role="alertdialog">
+            <span>${t("anchor_card.redrop_confirm", {
+              boat: this._boatName(),
+              radius: radiusM === null ? "—" : metres(radiusM),
+              distance: r.distanceM === null ? "—" : metres(r.distanceM),
+            })}</span>
+            <button class="cancel" @click=${() => (this._redropping = false)}>${t("anchor_card.cancel")}</button>
+            <button class="apply" @click=${() => this._redrop()}>${t("anchor_card.redrop_apply")}</button>
+          </div>`
+        : nothing}
       ${this._confirming && armed
         ? html`<div class="confirm" role="alertdialog">
             <span>${t("anchor_card.raise_confirm", { boat: this._boatName() })}</span>
@@ -296,6 +321,16 @@ export class VigieAnchorCard extends LitElement {
         : nothing}
       ${this._error ? html`<div class="error">${this._error}</div>` : nothing}
     </ha-card>`;
+  }
+
+  /** *Drop again here* during an alarm; on *Position lost* there is no position to drop at. */
+  private _redropButton(enabled: boolean) {
+    const t = (key: StringKey) => localize(this._language, key);
+    const usable = enabled && this._entryId() !== null;
+    return html`<button class="redrop" ?disabled=${!usable} @click=${() => usable && (this._redropping = true)}>
+        ${t("anchor_card.redrop")}
+      </button>
+      ${enabled ? nothing : html`<span class="hint">${t("anchor_card.redrop_no_position")}</span>`}`;
   }
 
   /**
@@ -520,7 +555,8 @@ export class VigieAnchorCard extends LitElement {
         color: var(--primary-text-color, #212121);
       }
       .raise,
-      .stop {
+      .stop,
+      .redrop-confirm .apply {
         background: var(--error-color, #d32f2f);
       }
       .cancel {

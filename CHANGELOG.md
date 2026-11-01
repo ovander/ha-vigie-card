@@ -5,6 +5,12 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+### Added
+- Anchor card: **Drop again here** during a drag alarm, without raising the anchor
+  first. An explicit warning gives the distance from the current anchor; confirming clears
+  the alarm and centres a new circle on the boat, with the current radius. Disabled on
+  *Position lost* (ovander/ha-vigie#106).
+
 ## [0.2.0-beta.4] - 2026-10-23
 
 A ready-made Vigie dashboard and an installation guide for newcomers to Home Assistant.
