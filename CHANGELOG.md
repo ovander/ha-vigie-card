@@ -5,6 +5,11 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.2.0-beta.5] - 2026-11-01
+
+One new button on the anchor card. Works with Vigie 0.3.0-beta.1 or later, as before (Vigie
+0.4.0-beta.3 for complete phone alerts outside English).
+
 ### Added
 - Anchor card: **Drop again here** during a drag alarm, without raising the anchor
   first. An explicit warning gives the distance from the current anchor; confirming clears
@@ -129,7 +134,8 @@ that sandbox); the check with real map tiles and on board is still to do.
   release (first view at world zoom, label flicker, popup pushed out of view, decimal
   separator, blank editor), each covered by a test.
 
-[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.4...HEAD
+[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.5...HEAD
+[0.2.0-beta.5]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.4...v0.2.0-beta.5
 [0.2.0-beta.4]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.3...v0.2.0-beta.4
 [0.2.0-beta.3]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.2...v0.2.0-beta.3
 [0.2.0-beta.2]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.1...v0.2.0-beta.2
