@@ -67,6 +67,11 @@ export const STRINGS = {
     "anchor_card.fit_too_soon": "Too soon: the swing needs {minutes} min at anchor to place the anchor",
     "anchor_card.fit_short": "Not enough swing to place the anchor",
     "anchor_card.fit_implausible": "The swing does not fit a circle inside the radius",
+    "anchor_card.redrop": "Drop again here",
+    "anchor_card.redrop_confirm":
+      "Clear {boat}'s drag alarm and centre a new {radius} circle on the boat, {distance} from the current anchor? Only if the anchor holds again.",
+    "anchor_card.redrop_apply": "Drop again",
+    "anchor_card.redrop_no_position": "No GPS position: nothing to drop the anchor at",
     "anchor_editor.switch": "Anchor watch switch",
     "anchor_editor.switch_help": "The other entities follow its name when left empty",
     "anchor_editor.distance": "Anchor distance (optional)",
@@ -180,6 +185,11 @@ export const STRINGS = {
     "anchor_card.fit_too_soon": "Trop tôt : il faut {minutes} min de mouillage pour placer l'ancre d'après l'évitage",
     "anchor_card.fit_short": "Pas assez d'évitage pour placer l'ancre",
     "anchor_card.fit_implausible": "L'évitage ne forme pas un cercle dans le rayon",
+    "anchor_card.redrop": "Remouiller ici",
+    "anchor_card.redrop_confirm":
+      "Effacer l'alarme de dérapage de {boat} et centrer un nouveau cercle de {radius} sur le bateau, à {distance} de l'ancre actuelle ? Seulement si l'ancre tient de nouveau.",
+    "anchor_card.redrop_apply": "Remouiller",
+    "anchor_card.redrop_no_position": "Pas de position GPS : impossible de remouiller",
     "anchor_editor.switch": "Interrupteur de veille au mouillage",
     "anchor_editor.switch_help": "Les autres entités suivent son nom si elles sont laissées vides",
     "anchor_editor.distance": "Distance à l'ancre (facultatif)",

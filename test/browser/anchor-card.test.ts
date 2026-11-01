@@ -1,4 +1,4 @@
-// F-ACARD-01…13 (TEST HA-SAIL-TEST-001 §4.8): the anchor card in headless Chromium,
+// F-ACARD-01…14 (TEST HA-SAIL-TEST-001 §4.8): the anchor card in headless Chromium,
 // with states recorded from Vigie on the `anchor-drag` preset (test/fixtures). The fake
 // `hass` records every service call. Tiles are a blank data URL: no network.
 import * as L from "leaflet";
@@ -383,14 +383,72 @@ describe("F-ACARD-11 visual editor", () => {
   });
 });
 
+describe("F-ACARD-14 drop again during the drag alarm (WP35)", () => {
+  it("F-ACARD-14 asks with an explicit warning, then drops again at the boat", async () => {
+    const states = at("dragging");
+    states["device_tracker.garnet"]!.attributes.friendly_name = "Garnet";
+    const { card, calls } = await mount(states);
+    one(card, ".redrop")!.click();
+    await settle(card);
+    expect(text(one(card, ".redrop-confirm"))).toContain(
+      "Clear Garnet's drag alarm and centre a new 50 m circle on the boat, 55 m from the current anchor? Only if the anchor holds again.",
+    );
+    expect(calls).toHaveLength(0);
+    one(card, ".redrop-confirm .cancel")!.click();
+    await settle(card);
+    expect(one(card, ".redrop-confirm")).toBeNull();
+    expect(calls).toHaveLength(0);
+
+    one(card, ".redrop")!.click();
+    await settle(card);
+    one(card, ".redrop-confirm .apply")!.click();
+    await settle(card);
+    expect(calls).toEqual([{ domain: "vigie", service: "drop_anchor", data: { config_entry_id: "entry-garnet" } }]);
+    expect(one(card, ".redrop-confirm")).toBeNull();
+  });
+
+  it("F-ACARD-14 French", async () => {
+    const { card } = await mount(at("dragging"), "fr");
+    expect(text(one(card, ".redrop"))).toBe("Remouiller ici");
+    one(card, ".redrop")!.click();
+    await settle(card);
+    expect(text(one(card, ".redrop-confirm"))).toContain("Effacer l'alarme de dérapage de");
+    expect(text(one(card, ".redrop-confirm"))).toContain("cercle de 50 m sur le bateau, à 55 m de l'ancre actuelle");
+  });
+
+  it("F-ACARD-14 disabled with the reason on Position lost; not shown without an alarm", async () => {
+    const lost = await mount(at("position-lost"));
+    const button = one(lost.card, ".redrop") as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(text(one(lost.card, ".controls"))).toContain("No GPS position: nothing to drop the anchor at");
+    button.click();
+    await settle(lost.card);
+    expect(one(lost.card, ".redrop-confirm")).toBeNull();
+    expect(lost.calls).toHaveLength(0);
+
+    const { card } = await mount(at("swinging"));
+    expect(one(card, ".redrop")).toBeNull();
+  });
+
+  it("F-ACARD-14 the alarm ending closes the question", async () => {
+    const { card, calls } = await mount(at("dragging"));
+    one(card, ".redrop")!.click();
+    await settle(card);
+    card.hass = hass(at("swinging")).h;
+    await settle(card);
+    expect(one(card, ".redrop-confirm")).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+});
+
 describe("F-ACARD-10 calls", () => {
-  it("F-ACARD-10 only the four calls of SPEC §9.8, on the configured entities, and the history request", () => {
+  it("F-ACARD-10 only the five calls of SPEC §9.8, on the configured entities, and the history request", () => {
     // Runs after the tests above (same file, in order): every call they made
     const allowed = new Set([
       "switch.turn_on switch.garnet_anchor_watch",
       "switch.turn_off switch.garnet_anchor_watch",
       "number.set_value number.garnet_anchor_radius",
-      "vigie.drop_anchor entry-garnet", // recentering only (OD-39): keep_since, a point
+      "vigie.drop_anchor entry-garnet", // recentering (OD-39), or dropping again (WP35)
     ]);
     expect(allCalls.length).toBeGreaterThanOrEqual(4);
     // The only other message: the read-only history request for the own tracker (OD-36)
@@ -402,7 +460,9 @@ describe("F-ACARD-10 calls", () => {
     for (const call of allCalls) {
       const target = call.data?.entity_id ?? call.data?.config_entry_id;
       expect(allowed, JSON.stringify(call)).toContain(`${call.domain}.${call.service} ${target}`);
-      if (call.domain === "vigie") {
+      if (call.domain === "vigie" && Object.keys(call.data!).length === 1) {
+        expect(call.data).toEqual({ config_entry_id: "entry-garnet" }); // dropping again (WP35)
+      } else if (call.domain === "vigie") {
         expect(Object.keys(call.data!).sort()).toEqual(["config_entry_id", "keep_since", "latitude", "longitude"]);
         expect(call.data!.keep_since).toBe(true);
       } else {
