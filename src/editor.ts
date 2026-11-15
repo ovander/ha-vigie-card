@@ -30,7 +30,7 @@ interface Form {
 const TRAFFIC_FORM: Form = {
   schema: SCHEMA,
   prefix: "editor",
-  help: new Set(["rings_nm", "tiles", "overlay"]),
+  help: new Set(["rings_nm", "track_hours", "tiles", "overlay"]),
   toForm: toFormData,
   fromForm: fromFormData,
 };

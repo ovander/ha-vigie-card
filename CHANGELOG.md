@@ -5,6 +5,12 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+### Added
+- Traffic map: **the boat's track**, as an option. `track_hours: 6` (or *Boat track* in
+  the visual editor) draws the last hours behind the boat, up to 24, from Home Assistant's
+  history and then live. Off by default: existing cards do not change
+  (ovander/ha-vigie#112).
+
 ## [0.2.0-beta.5] - 2026-11-01
 
 One new button on the anchor card. Works with Vigie 0.3.0-beta.1 or later, as before (Vigie

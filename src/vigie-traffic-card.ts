@@ -3,13 +3,14 @@
  * (SPEC HA-SAIL-SPEC-001 §9.7, component C-12).
  *
  * Draws the own boat, every target of `sensor.<boat>_ais_targets` (the 50 nearest),
- * threats with their CPA point, range rings and the anchor watch. An aid to awareness,
- * not a navigation display.
+ * threats with their CPA point, range rings, the anchor watch and, as an option, the boat's
+ * track (#112). An aid to awareness, not a navigation display.
  */
 
 import leafletCss from "leaflet/dist/leaflet.css?raw";
 import { css, html, LitElement, nothing, type PropertyValues, unsafeCSS } from "lit";
 
+import { historyRequest, thin, type TrackPoint, trackFrom } from "./anchor-model";
 import { type VigieTrafficCardConfig, validateConfig } from "./config";
 import { EDITOR_TAG } from "./editor";
 import { localeTag, localize } from "./i18n";
@@ -27,7 +28,12 @@ export interface Hass {
   states: Record<string, HassState | undefined>;
   locale?: { language?: string; time_format?: string };
   language?: string;
+  /** Home Assistant's WebSocket call; the card only reads the own tracker's history (#112). */
+  callWS?<T>(message: Record<string, unknown>): Promise<T>;
 }
+
+/** The track has no start of its own: the last `track_hours` (#112). */
+const NO_START = new Date(0);
 
 export class VigieTrafficCard extends LitElement {
   static override properties = {
@@ -45,6 +51,12 @@ export class VigieTrafficCard extends LitElement {
   private _resize?: ResizeObserver;
   /** The state objects last drawn: Home Assistant replaces an object when it changes. */
   private _drawn: unknown[] = [];
+  /** The own track (#112): Home Assistant's history once, then the positions seen live. */
+  private _track: TrackPoint[] = [];
+  /** The tracker and hours the track was loaded for. */
+  private _trackFor: string | null = null;
+  private _trackLoaded = false;
+  private _trackTracker?: HassState;
 
   /** Called by Home Assistant with the YAML configuration; throws on an invalid one. */
   setConfig(config: unknown): void {
@@ -109,6 +121,7 @@ export class VigieTrafficCard extends LitElement {
       ownState: positionState(own),
       targets: targetRows(targets),
       anchor,
+      track: this._track.map((p) => [p.lat, p.lon] as [number, number]),
     };
   }
 
@@ -116,6 +129,54 @@ export class VigieTrafficCard extends LitElement {
     super.willUpdate(changed);
     const own = this._config && this.hass ? ownBoat(this.hass.states[this._config.own]) : null;
     if (own) this._lastOwn = own;
+    if (this._config && this.hass) this._syncTrack();
+  }
+
+  /**
+   * The own track (#112): one read-only history request for the last `track_hours`, then the
+   * positions seen live; older points drop out. Off with `track_hours: 0`.
+   */
+  private _syncTrack(): void {
+    const c = this._config!;
+    if (c.track_hours <= 0) {
+      this._track = [];
+      this._trackFor = null;
+      return;
+    }
+    const key = `${c.own} ${c.track_hours}`;
+    if (key !== this._trackFor) {
+      this._trackFor = key;
+      this._track = [];
+      this._trackLoaded = false;
+      this._trackTracker = undefined;
+      const request = historyRequest(c.own, NO_START, c.track_hours, new Date());
+      if (!request || !this.hass!.callWS) {
+        this._trackLoaded = true; // no history: the live points only
+      } else {
+        this.hass!.callWS<unknown>(request).then(
+          (history) => {
+            if (this._trackFor !== key) return; // another configuration since
+            this._track = trackFrom(history, c.own, NO_START, c.track_hours, new Date());
+            this._trackLoaded = true;
+            this._syncTrack();
+            this._map?.update(this._viewOf(this._states()));
+          },
+          () => (this._trackLoaded = true), // no history (recorder off): the live points only
+        );
+        return;
+      }
+    }
+    const tracker = this.hass!.states[c.own];
+    if (!this._trackLoaded || tracker === this._trackTracker) return;
+    this._trackTracker = tracker;
+    const since = Date.now() - c.track_hours * 3_600_000;
+    const track = this._track.filter((p) => p.t >= since);
+    const own = ownBoat(tracker);
+    const last = track[track.length - 1];
+    if (own && (!last || last.lat !== own.lat || last.lon !== own.lon)) {
+      track.push({ t: Date.now(), lat: own.lat, lon: own.lon });
+    }
+    this._track = thin(track);
   }
 
   protected override render() {

@@ -26,6 +26,7 @@ describe("U-CARD-06 configuration", () => {
       label_zoom: 13,
       height: "400px",
       tiles: DEFAULTS.tiles,
+      track_hours: 0, // no track unless asked (#112)
     });
     expect(config.collision_risk).toBeUndefined();
     expect(config.anchor).toBeUndefined();
@@ -47,6 +48,11 @@ describe("U-CARD-06 configuration", () => {
     expect(config.title).toBe("Traffic");
   });
 
+  it("keeps a track of 0 to 24 hours (#112)", () => {
+    expect(validateConfig({ ...MINIMAL, track_hours: 6 }).track_hours).toBe(6);
+    expect(validateConfig({ ...MINIMAL, track_hours: 24 }).track_hours).toBe(24);
+  });
+
   it("accepts no range rings", () => {
     expect(validateConfig({ ...MINIMAL, rings_nm: [] }).rings_nm).toEqual([]);
   });
@@ -58,6 +64,9 @@ describe("U-CARD-06 configuration", () => {
     [{ ...MINIMAL, own: "sensor.garnet" }, "own"],
     [{ ...MINIMAL, collision_risk: "sensor.x" }, "collision_risk"],
     [{ ...MINIMAL, vector_minutes: 0 }, "vector_minutes"],
+    [{ ...MINIMAL, track_hours: -1 }, "track_hours"],
+    [{ ...MINIMAL, track_hours: 25 }, "track_hours"],
+    [{ ...MINIMAL, track_hours: "6" }, "track_hours"],
     [{ ...MINIMAL, vector_minutes: -3 }, "vector_minutes"],
     [{ ...MINIMAL, vector_minutes: "6" }, "vector_minutes"],
     [{ ...MINIMAL, rings_nm: 1 }, "rings_nm"],
