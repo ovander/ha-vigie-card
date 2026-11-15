@@ -1,4 +1,4 @@
-// F-CARD-01…07, 09…11 (TEST HA-SAIL-TEST-001 §4.7): the card rendered in headless Chromium
+// F-CARD-01…12 (TEST HA-SAIL-TEST-001 §4.7): the card rendered in headless Chromium
 // with states recorded from Vigie (test/fixtures, written by Vigie's own tests). Tiles are
 // a blank data URL: no network.
 import * as L from "leaflet";
@@ -211,6 +211,80 @@ describe("follow mode", () => {
     await settle(card);
     expect(card.trafficMap!.follow).toBe(true);
     expect(card.shadowRoot!.querySelector(".recenter")).toBeNull();
+  });
+});
+
+describe("F-CARD-12 own boat track (#112)", () => {
+  /** The tracker's history: 30 points over the last hour leading to the boat, and 5 older. */
+  function history(own: { latitude: number; longitude: number }) {
+    const now = Date.now() / 1000;
+    const row = (minutesAgo: number, i: number) => ({
+      s: "not_home",
+      a: { latitude: own.latitude - i * 0.0005, longitude: own.longitude },
+      lu: now - minutesAgo * 60,
+    });
+    const recent = Array.from({ length: 30 }, (_, i) => row(2 * (i + 1), i + 1));
+    const old = Array.from({ length: 5 }, (_, i) => row(300 + i, 40 + i));
+    return { "device_tracker.garnet": [...old, ...recent] };
+  }
+
+  async function mountTracked(hours: number) {
+    const states = clone(multiTarget) as States;
+    const own = states["device_tracker.garnet"]!.attributes as { latitude: number; longitude: number };
+    const messages: Record<string, unknown>[] = [];
+    const h: Hass = {
+      ...hass(states),
+      callWS: async <T>(message: Record<string, unknown>) => {
+        messages.push(message);
+        return history(own) as T;
+      },
+    };
+    const card = document.createElement(CARD_TAG) as VigieTrafficCard;
+    card.style.display = "block";
+    card.style.width = "600px";
+    card.setConfig({ ...CONFIG, track_hours: hours });
+    card.hass = h;
+    document.body.appendChild(card);
+    cards.push(card);
+    await settle(card);
+    await new Promise((r) => setTimeout(r, 0)); // the history answer
+    await settle(card);
+    return { card, messages, states, h };
+  }
+
+  it("F-CARD-12 one history request for the last hours, then the track behind the boat", async () => {
+    const { card, messages } = await mountTracked(2);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({ type: "history/history_during_period", entity_ids: ["device_tracker.garnet"] });
+    const start = Date.parse(messages[0].start_time as string);
+    expect(Math.abs(Date.now() - 2 * 3_600_000 - start)).toBeLessThan(60_000);
+    // The 30 points of the last hour and the boat itself; the 5-hour-old points left out
+    expect(card.trafficMap!.trackLength).toBe(31);
+    expect(all(card, "path.vigie-track")).toHaveLength(1);
+  });
+
+  it("F-CARD-12 a new position extends the track, without another request", async () => {
+    const { card, messages, states, h } = await mountTracked(2);
+    const moved = clone(states);
+    (moved["device_tracker.garnet"]!.attributes as { latitude: number }).latitude += 0.001;
+    card.hass = { ...h, states: moved };
+    await settle(card);
+    expect(card.trafficMap!.trackLength).toBe(32);
+    expect(messages).toHaveLength(1);
+  });
+
+  it("F-CARD-12 off by default: no request, no track", async () => {
+    const messages: unknown[] = [];
+    const card = document.createElement(CARD_TAG) as VigieTrafficCard;
+    card.style.display = "block";
+    card.setConfig(CONFIG);
+    card.hass = { ...hass(clone(multiTarget)), callWS: async <T>(m: Record<string, unknown>) => (messages.push(m), {} as T) };
+    document.body.appendChild(card);
+    cards.push(card);
+    await settle(card);
+    expect(messages).toHaveLength(0);
+    expect(card.trafficMap!.trackLength).toBe(0);
+    expect(all(card, "path.vigie-track")).toHaveLength(0);
   });
 });
 

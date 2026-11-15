@@ -18,6 +18,7 @@ const FULL = {
   height: "500px",
   tiles: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   overlay: "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png",
+  track_hours: 3,
 };
 
 describe("F-CARD-08 editor form", () => {

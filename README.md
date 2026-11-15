@@ -32,6 +32,9 @@ Two dashboard cards for Home Assistant, companions of the
 - **Threats** in red, with a dashed line to the point of closest approach and a label
   `NAME: CPA 0.45 NM in 2.7 min`. The card border turns red while `collision_risk` is on.
 - **The anchor** and its swing circle while the anchor watch is on, red when the alarm is.
+- **Your boat's track**, as an option: `track_hours: 6` draws the last 6 hours behind the
+  boat (up to 24), from Home Assistant's history, so it survives a page reload; off by
+  default. Needs the recorder, on by default, to keep the boat's tracker.
 - **Details** when you tap a target: MMSI, class, ship type, length, SOG, COG, heading,
   distance, CPA, TCPA, age of the last report.
 - The map follows your boat; panning stops following, the ⌖ button resumes it. Names are
@@ -159,6 +162,7 @@ vector_minutes: 6                        # course vectors, minutes
 rings_nm: [0.5, 1, 2]                    # range rings, NM; [] for none
 label_zoom: 13                           # label every target from this zoom
 height: 400px
+track_hours: 0                           # boat track drawn, hours (up to 24); 0 for none
 tiles: https://tile.openstreetmap.org/{z}/{x}/{y}.png
 # overlay: https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png
 ```

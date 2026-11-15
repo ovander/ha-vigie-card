@@ -23,6 +23,8 @@ export interface MapView {
   ownState?: PositionState;
   targets: TargetRow[];
   anchor: Anchor | null;
+  /** The own boat's track (#112), oldest first; empty when off. */
+  track?: [number, number][];
 }
 
 const ICON = 22;
@@ -121,6 +123,7 @@ export class TrafficMap {
   private readonly targets = L.layerGroup();
   private readonly rings = L.layerGroup();
   private readonly anchor = L.layerGroup();
+  private readonly track = L.layerGroup();
   private view: MapView = { own: null, targets: [], anchor: null };
   private fitted = false;
   private followOwn = true;
@@ -138,7 +141,7 @@ export class TrafficMap {
     // (closed tooltips otherwise linger 200 ms next to their replacements)
     this.map = L.map(container, { zoomControl: true, attributionControl: true, fadeAnimation: false });
     addTiles(this.map, config.tiles, config.overlay);
-    for (const layer of [this.rings, this.anchor, this.targets, this.own]) layer.addTo(this.map);
+    for (const layer of [this.rings, this.anchor, this.track, this.targets, this.own]) layer.addTo(this.map);
     this.map.setView([0, 0], 2);
     this.map.on("dragstart", () => this.setFollow(false));
     this.map.on("zoomend", () => this.drawTargets()); // labels depend on the zoom
@@ -171,9 +174,24 @@ export class TrafficMap {
     this.drawOwn();
     this.drawRings();
     this.drawAnchor();
+    this.drawTrack();
     this.drawTargets();
     if (!this.fitted) this.fit();
     else if (this.followOwn) this.center();
+  }
+
+  /** Points of the own track drawn, for tests and diagnostics. */
+  get trackLength(): number {
+    return this.view.track?.length ?? 0;
+  }
+
+  private drawTrack(): void {
+    this.track.clearLayers();
+    const points = this.view.track ?? [];
+    if (points.length < 2) return;
+    this.track.addLayer(
+      L.polyline(points, { color: COLORS.own, weight: 2, opacity: 0.6, interactive: false, className: "vigie-track" }),
+    );
   }
 
   invalidateSize(): void {

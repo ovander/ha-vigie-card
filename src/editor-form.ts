@@ -27,6 +27,10 @@ export const SCHEMA = [
       { name: "label_zoom", selector: { number: { min: 1, max: 19, step: 1, mode: "box" } } },
       { name: "rings_nm", selector: { text: {} } },
       { name: "height", selector: { text: {} } },
+      {
+        name: "track_hours",
+        selector: { number: { min: 0, max: 24, step: 1, mode: "box", unit_of_measurement: "h" } },
+      },
     ],
   },
   { name: "tiles", selector: { text: {} } },

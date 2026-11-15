@@ -27,6 +27,8 @@ export interface VigieTrafficCardConfig {
   tiles: string;
   /** Optional overlay tile URL template, e.g. OpenSeaMap sea marks. */
   overlay?: string;
+  /** Hours of the own boat's track drawn behind it (#112); 0 for none. */
+  track_hours: number;
 }
 
 export const DEFAULTS = {
@@ -35,7 +37,11 @@ export const DEFAULTS = {
   label_zoom: 13,
   height: "400px",
   tiles: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  track_hours: 0,
 } as const;
+
+/** The longest track: a day of Home Assistant's history is already a large answer. */
+export const MAX_TRACK_HOURS = 24;
 
 /** A configuration error that names the field (shown by Home Assistant on the card). */
 export class ConfigError extends Error {
@@ -92,6 +98,10 @@ export function validateConfig(raw: unknown): VigieTrafficCardConfig {
   if (!tiles.includes("{z}") || !tiles.includes("{x}") || !tiles.includes("{y}")) {
     throw new ConfigError("tiles", "must contain {z}, {x} and {y}");
   }
+  const hours = r.track_hours ?? DEFAULTS.track_hours;
+  if (typeof hours !== "number" || !Number.isFinite(hours) || hours < 0 || hours > MAX_TRACK_HOURS) {
+    throw new ConfigError("track_hours", `must be a number of hours, 0 to ${MAX_TRACK_HOURS}`);
+  }
   return {
     type: typeof r.type === "string" ? r.type : "custom:vigie-traffic-card",
     entity: entityOf(r, "entity", "sensor", true)!,
@@ -105,5 +115,6 @@ export function validateConfig(raw: unknown): VigieTrafficCardConfig {
     height: text(r, "height") ?? DEFAULTS.height,
     tiles,
     overlay: text(r, "overlay"),
+    track_hours: hours,
   };
 }
