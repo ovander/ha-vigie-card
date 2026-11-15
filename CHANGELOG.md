@@ -5,6 +5,12 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+### Documentation
+- Installation from Home Assistant's **Marketplace** (2026.11 replaces HACS): add the cards
+  by their GitHub link and allow their pre-releases; the HACS steps stay for 2026.2 to
+  2026.10; the resource path `/local/community/…`; *Advanced mode* only before 2026.6
+  (ovander/ha-vigie#116).
+
 ## [0.2.0-beta.6] - 2026-11-15
 
 The boat's track on the traffic map, as an option. Nothing else changes. Works with Vigie

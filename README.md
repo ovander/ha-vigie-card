@@ -51,7 +51,8 @@ lookout and use your chartplotter or charting software to navigate.
 
 ## Requirements
 
-- Home Assistant 2026.2.0 or later, with [HACS](https://hacs.xyz) installed.
+- Home Assistant 2026.2.0 or later: from 2026.11 it installs community cards itself (the
+  *Marketplace*); before 2026.11, with [HACS](https://hacs.xyz) installed.
 - [Vigie](https://github.com/ovander/ha-vigie) 0.3.0-beta.1 or later, set up with your
   boat (*Settings → Devices & services* lists **Vigie** with your boat under it);
   0.4.0-beta.1 or later for the anchor card's *Recenter* and *Move the anchor*.
@@ -59,9 +60,25 @@ lookout and use your chartplotter or charting software to navigate.
 ## Installation, step by step
 
 Vigie (the integration) and Vigie cards (this dashboard part) are **two separate
-downloads** in HACS. Install Vigie first, following its README.
+downloads**. Install Vigie first, following its README.
 
-### 1. Download Vigie cards with HACS
+### 1. Download Vigie cards
+
+**Home Assistant 2026.11 or later: the Marketplace.**
+
+1. Settings → **Marketplace** → **Add from link** (top right). *GitHub link*:
+   `ovander/ha-vigie-card` → **Add** (if it asks for the type: *Dashboard*). The first time,
+   the Marketplace asks you to connect GitHub: open the link it shows, sign in and enter
+   the code.
+2. Allow beta versions (Vigie cards only has betas for now): Settings → Devices & services →
+   **Marketplace** → the **Vigie cards** device. Its **Pre-release** switch is hidden at
+   first: open the entities not shown, select *Pre-release*, ⚙ settings → **Enabled** →
+   Update. Then turn the switch **on**.
+3. Settings → Marketplace → **Vigie cards** → **Install**, and confirm. If a repair asks you
+   to restart Home Assistant (no `www` folder yet), do so.
+4. Reload the page **without the cache**, as in step 6 below.
+
+**Home Assistant 2026.2 to 2026.10: HACS.**
 
 1. Open **HACS** in Home Assistant's sidebar.
 2. Top right, **⋮ → Custom repositories**.
@@ -76,16 +93,19 @@ downloads** in HACS. Install Vigie first, following its README.
    (Mac). In the phone app: *Settings → Companion app → Debugging → Reset frontend cache*,
    then close and reopen the app.
 
-You do not need to restart Home Assistant: the cards are a file the browser loads. HACS adds
-that file to the dashboards' resources by itself (step 2 checks it).
+You do not need to restart Home Assistant: the cards are a file the browser loads. The
+Marketplace (or HACS) adds that file to the dashboards' resources by itself (step 2 checks
+it). Updating to Home Assistant 2026.11 moves HACS into the Marketplace by itself: the cards
+stay installed and keep their updates (turn on *Pre-release* if no new beta is offered).
 
 ### 2. Check that the file is loaded (optional)
 
 *Settings → Dashboards → ⋮ (top right) → Resources* lists
-`/hacsfiles/ha-vigie-card/vigie-traffic-card.js`, type *JavaScript module*. If the
-*Resources* entry is missing from the ⋮ menu, turn on *Advanced mode* in your user
-profile (click your name, bottom left). If the line is missing, add it with
-**+ Add resource**, then reload as in step 1.6.
+`/local/community/ha-vigie-card/vigie-traffic-card.js` (Marketplace) or
+`/hacsfiles/ha-vigie-card/vigie-traffic-card.js` (HACS; still served from 2026.11), type
+*JavaScript module*. Before Home Assistant 2026.6, the *Resources* entry needs *Advanced
+mode* in your user profile (click your name, bottom left). If the line is missing, add it
+with **+ Add resource**, then reload as in step 1.6.
 
 ### 3. Put the maps on a dashboard
 
@@ -138,6 +158,7 @@ below.
 | What you see | What to do |
 |---|---|
 | *Vigie traffic map* is not in the card list, or a red box `Custom element doesn't exist: vigie-traffic-card` (or `…-anchor-card`, or `custom:vigie` on a dashboard) | The browser has not loaded the file: check step 2, then reload without the cache (step 1.6). On a phone, reset the app's frontend cache |
+| The Marketplace finds no version to install | Turn on the repository's *Pre-release* switch (step 1, Marketplace, point 2): Vigie cards only has betas |
 | HACS shows no *Vigie cards* | The custom repository was added with the wrong type: remove it in *Custom repositories* and add it again with type **Dashboard** |
 | The dashboard says *No Vigie boat found* | Vigie is not set up yet, or not loaded: check *Settings → Devices & services → Vigie*, then reload the dashboard |
 | `Entity sensor.….ais_targets not found` in a card | The entity names differ from the example: use the visual editor (pencil on the card), which lists your boat's entities, or way A |
