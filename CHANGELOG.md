@@ -5,6 +5,11 @@ versioning: SemVer.
 
 ## [Unreleased]
 
+## [0.2.0-beta.6] - 2026-11-15
+
+The boat's track on the traffic map, as an option. Nothing else changes. Works with Vigie
+0.3.0-beta.1 or later, as before.
+
 ### Added
 - Traffic map: **the boat's track**, as an option. `track_hours: 6` (or *Boat track* in
   the visual editor) draws the last hours behind the boat, up to 24, from Home Assistant's
@@ -140,7 +145,8 @@ that sandbox); the check with real map tiles and on board is still to do.
   release (first view at world zoom, label flicker, popup pushed out of view, decimal
   separator, blank editor), each covered by a test.
 
-[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.5...HEAD
+[Unreleased]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.6...HEAD
+[0.2.0-beta.6]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.5...v0.2.0-beta.6
 [0.2.0-beta.5]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.4...v0.2.0-beta.5
 [0.2.0-beta.4]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.3...v0.2.0-beta.4
 [0.2.0-beta.3]: https://github.com/ovander/ha-vigie-card/compare/v0.2.0-beta.2...v0.2.0-beta.3
