@@ -32,9 +32,11 @@ Two dashboard cards for Home Assistant, companions of the
 - **Threats** in red, with a dashed line to the point of closest approach and a label
   `NAME: CPA 0.45 NM in 2.7 min`. The card border turns red while `collision_risk` is on.
 - **The anchor** and its swing circle while the anchor watch is on, red when the alarm is.
-- **Your boat's track**, as an option: `track_hours: 6` draws the last 6 hours behind the
-  boat (up to 24), from Home Assistant's history, so it survives a page reload; off by
-  default. Needs the recorder, on by default, to keep the boat's tracker.
+- **Your boat's track**, as an option (from 0.2.0-beta.6): `track_hours: 6` draws the last
+  6 hours behind the boat (up to 24), from Home Assistant's history, so it survives a page
+  reload. **Off by default**, also on the ready-made dashboard: see
+  [Turn on the boat's track](#turn-on-the-boats-track). Needs the recorder, on by default,
+  to keep the boat's tracker.
 - **Details** when you tap a target: MMSI, class, ship type, length, SOG, COG, heading,
   distance, CPA, TCPA, age of the last report.
 - The map follows your boat; panning stops following, the ⌖ button resumes it. Names are
@@ -153,6 +155,30 @@ two-space indentation of the other views):
 editor fills in your boat's entities; click **Save**. The configuration of each card is
 below.
 
+### Turn on the boat's track
+
+The track is off until you set how many hours to draw. It is an option of the **traffic
+map** (the anchor card has its own swing track, on by default).
+
+**On a dashboard you made (ways B or C):**
+
+1. Open the dashboard, click the **pencil** (top right).
+2. On the traffic map, click **Edit**.
+3. In the editor, below *Map height*, set **Boat track** (*Trace du bateau* in French)
+   to the number of hours, for example `6` (at most 24; `0` turns it off).
+4. Click **Save**, then **Done**.
+
+In YAML (the editor's ⋮ → *Edit in YAML*), add the line `track_hours: 6`.
+
+**On the ready-made Vigie dashboard (way A):** its cards are built on every load, so they
+cannot be edited as they are, and their track is off. Click the **pencil**, then
+**⋮ → Take control**, and follow the steps above. The dashboard becomes an ordinary one:
+it no longer rebuilds itself when you add a boat.
+
+**No *Boat track* field in the editor?** The cards installed are older than 0.2.0-beta.6:
+update them (Settings → Updates, or the Marketplace page of *Vigie cards*), then reload
+the page without the cache (step 1.6).
+
 ### Troubleshooting
 
 | What you see | What to do |
@@ -162,6 +188,7 @@ below.
 | HACS shows no *Vigie cards* | The custom repository was added with the wrong type: remove it in *Custom repositories* and add it again with type **Dashboard** |
 | The dashboard says *No Vigie boat found* | Vigie is not set up yet, or not loaded: check *Settings → Devices & services → Vigie*, then reload the dashboard |
 | `Entity sensor.….ais_targets not found` in a card | The entity names differ from the example: use the visual editor (pencil on the card), which lists your boat's entities, or way A |
+| No *Boat track* field in the traffic map's editor, or no track drawn | Update the cards to 0.2.0-beta.6 or later and reload without the cache; then set *Boat track* to some hours ([Turn on the boat's track](#turn-on-the-boats-track)). On the ready-made dashboard, take control first |
 | Grey map with the boat and targets drawn | The map tiles cannot be loaded (no internet on board): the picture is still right, only the background is missing |
 | Empty map, `Own position unknown` | Vigie has no GPS position yet: check the receiver, or the replay on the bench |
 
