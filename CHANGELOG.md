@@ -6,6 +6,9 @@ versioning: SemVer.
 ## [Unreleased]
 
 ### Documentation
+- *Turn on the boat's track*: where the option is in the traffic map's editor, and how on
+  the ready-made dashboard (take control first); a troubleshooting row
+  (ovander/ha-vigie#112).
 - Installation from Home Assistant's **Marketplace** (2026.11 replaces HACS): add the cards
   by their GitHub link and allow their pre-releases; the HACS steps stay for 2026.2 to
   2026.10; the resource path `/local/community/…`; *Advanced mode* only before 2026.6
